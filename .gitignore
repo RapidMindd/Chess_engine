@@ -1,2 +1,4 @@
 c_cpp_properties.json
 main
+main.o
+main.d
