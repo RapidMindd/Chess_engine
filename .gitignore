@@ -2,3 +2,7 @@ c_cpp_properties.json
 main
 main.o
 main.d
+test-main.o
+test-main.d
+test-position.o
+test-position.d
