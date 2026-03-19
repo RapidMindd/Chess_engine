@@ -2,6 +2,7 @@
 #include "Position.hpp"
 
 using namespace chess;
+
 BOOST_AUTO_TEST_CASE(default_constructor)
 {
   Position empty_pos;

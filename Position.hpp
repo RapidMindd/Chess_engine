@@ -3,6 +3,8 @@
 
 namespace chess
 {
+  char pieceToChar(int piece) noexcept;
+
   enum Piece
   {
     EMPTY = 0,
@@ -139,6 +141,45 @@ namespace chess
   bool Position::isWhiteToMove() const noexcept
   {
     return whiteToMove;
+  }
+
+  void Position::print() const
+  {
+    for (int row = 7; row >= 0; --row)
+    {
+      std::cout << row + 1;
+      //std::cout <<pieceToChar(board[8 * row]);
+      for (int col = 0; col < 8; ++col)
+      {
+        std::cout << " " << pieceToChar(board[8 * row + col]);
+      }
+      std::cout << "\n";
+    }
+    std::cout << "  a b c d e f g h" << "\n";
+    whiteToMove ? std::cout << "White " : std::cout << "Black ";
+    std::cout << "to move\n";
+  }
+
+  char pieceToChar(int piece) noexcept
+  {
+    switch (piece)
+    {
+      case WHITE_PAWN: return 'P';
+      case WHITE_KNIGHT: return 'N';
+      case WHITE_BISHOP: return 'B';
+      case WHITE_ROOK: return 'R';
+      case WHITE_QUEEN: return 'Q';
+      case WHITE_KING: return 'K';
+
+      case BLACK_PAWN: return 'p';
+      case BLACK_KNIGHT: return 'n';
+      case BLACK_BISHOP: return 'b';
+      case BLACK_ROOK: return 'r';
+      case BLACK_QUEEN: return 'q';
+      case BLACK_KING: return 'k';
+
+      default: return '.';
+    }
   }
 }
 

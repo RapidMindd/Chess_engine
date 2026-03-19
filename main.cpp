@@ -1,6 +1,9 @@
 #include <iostream>
+#include "Position.hpp"
 
 int main()
 {
-  std::cout << "Hi!" << "\n";
+  chess::Position pos;
+  pos.setInitial();
+  pos.print();
 }
