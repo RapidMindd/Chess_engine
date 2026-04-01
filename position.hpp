@@ -1,6 +1,9 @@
 #ifndef POSITION_HPP
 #define POSITION_HPP
 
+#include <cstddef>
+#include <iostream>
+
 namespace chess
 {
   char pieceToChar(int piece) noexcept;
@@ -104,7 +107,7 @@ namespace chess
     {
       board[i] = BLACK_PAWN;
     }
-    
+
     board[A1] = WHITE_ROOK;
     board[B1] = WHITE_KNIGHT;
     board[C1] = WHITE_BISHOP;
@@ -148,7 +151,6 @@ namespace chess
     for (int row = 7; row >= 0; --row)
     {
       std::cout << row + 1;
-      //std::cout <<pieceToChar(board[8 * row]);
       for (int col = 0; col < 8; ++col)
       {
         std::cout << " " << pieceToChar(board[8 * row + col]);
