@@ -4,9 +4,23 @@
 #include <cstddef>
 #include <iostream>
 
+#include "move.hpp"
+
 namespace chess
 {
   char pieceToChar(int piece) noexcept;
+
+  struct UndoInfo
+  {
+    int capturedPiece_;
+
+    bool whiteKingCastling_ = 0;
+    bool whiteQueenCastling_ = 0;
+    bool blackKingCastling_ = 0;
+    bool blackQueenCastling_ = 0;
+
+    int enPassantSquare_ = -1;
+  };
 
   enum Piece
   {
@@ -44,12 +58,12 @@ namespace chess
     int board_[64];
     bool whiteToMove_;
 
-    bool whiteKingCastling_;
-    bool whiteQueenCastling_;
-    bool blackKingCastling_;
-    bool blackQueenCastling_;
+    bool whiteKingCastling_ = 0;
+    bool whiteQueenCastling_ = 0;
+    bool blackKingCastling_ = 0;
+    bool blackQueenCastling_ = 0;
 
-    int enPassant_;
+    int enPassantSquare_ = -1;
 
   public:
     Position();
@@ -60,16 +74,14 @@ namespace chess
     int getPiece(int square) const;
     bool isWhiteToMove() const noexcept;
 
+    void makeMove(const Move& move, UndoInfo& undo) noexcept;
+    void undoMove(const Move& move, const UndoInfo& undo) noexcept;
+
     void print() const;
   };
 
   Position::Position():
-  whiteToMove_(true),
-  whiteKingCastling_(false),
-  whiteQueenCastling_(false),
-  blackKingCastling_(false),
-  blackQueenCastling_(false),
-  enPassant_(-1)
+  whiteToMove_(true)
   {
     for (size_t i = 0; i < 64; ++i)
     {
@@ -91,7 +103,7 @@ namespace chess
     blackKingCastling_ = false;
     blackQueenCastling_ = false;
 
-    enPassant_ = -1;
+    enPassantSquare_ = -1;
   }
 
   void Position::setInitial() noexcept
@@ -133,7 +145,7 @@ namespace chess
     blackKingCastling_ = true;
     blackQueenCastling_ = true;
 
-    enPassant_ = -1;
+    enPassantSquare_ = -1;
   }
 
   int Position::getPiece(int square) const
@@ -160,6 +172,21 @@ namespace chess
     std::cout << "  a b c d e f g h" << "\n";
     whiteToMove_ ? std::cout << "White " : std::cout << "Black ";
     std::cout << "to move\n";
+  }
+
+  void Position::makeMove(const Move& move, UndoInfo& undo) noexcept
+  {
+    undo.capturedPiece_ = board_[move.to_];
+    board_[move.to_] = board_[move.from_];
+    board_[move.from_] = EMPTY;
+    whiteToMove_ = !whiteToMove_;
+  }
+
+  void Position::undoMove(const Move& move, const UndoInfo& undo) noexcept
+  {
+    board_[move.from_] = board_[move.to_];
+    board_[move.to_] = undo.capturedPiece_;
+    whiteToMove_ = !whiteToMove_;
   }
 
   char pieceToChar(int piece) noexcept
