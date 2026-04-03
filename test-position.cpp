@@ -64,9 +64,11 @@ BOOST_AUTO_TEST_CASE(undo_moves)
   pos.undoMove(moves[2], undo[2]);
   BOOST_TEST(pos.getPiece(E4) == WHITE_PAWN);
   BOOST_TEST(pos.getPiece(D5) == BLACK_PAWN);
+  BOOST_TEST(pos.isWhiteToMove());
   pos.undoMove(moves[1], undo[1]);
   BOOST_TEST(pos.getPiece(D5) == EMPTY);
   BOOST_TEST(pos.getPiece(D7) == BLACK_PAWN);
+  BOOST_TEST(!pos.isWhiteToMove());
   pos.undoMove(moves[0], undo[0]);
   BOOST_TEST(pos.getPiece(E4) == EMPTY);
   BOOST_TEST(pos.getPiece(E2) == WHITE_PAWN);

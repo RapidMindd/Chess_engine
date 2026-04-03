@@ -7,3 +7,4 @@ test-main.d
 test-position.o
 test-position.d
 tests
+settings.json
