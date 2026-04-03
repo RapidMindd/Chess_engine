@@ -41,15 +41,15 @@ namespace chess
   struct Position
   {
   private:
-    int board[64];
-    bool whiteToMove;
+    int board_[64];
+    bool whiteToMove_;
 
-    bool whiteKingCastling;
-    bool whiteQueenCastling;
-    bool blackKingCastling;
-    bool blackQueenCastling;
+    bool whiteKingCastling_;
+    bool whiteQueenCastling_;
+    bool blackKingCastling_;
+    bool blackQueenCastling_;
 
-    int enPassant;
+    int enPassant_;
 
   public:
     Position();
@@ -64,16 +64,16 @@ namespace chess
   };
 
   Position::Position():
-  whiteToMove(true),
-  whiteKingCastling(false),
-  whiteQueenCastling(false),
-  blackKingCastling(false),
-  blackQueenCastling(false),
-  enPassant(-1)
+  whiteToMove_(true),
+  whiteKingCastling_(false),
+  whiteQueenCastling_(false),
+  blackKingCastling_(false),
+  blackQueenCastling_(false),
+  enPassant_(-1)
   {
     for (size_t i = 0; i < 64; ++i)
     {
-      board[i] = 0;
+      board_[i] = 0;
     }
   }
 
@@ -81,17 +81,17 @@ namespace chess
   {
     for (size_t i = 0; i < 64; ++i)
     {
-      board[i] = 0;
+      board_[i] = 0;
     }
 
-    whiteToMove = true;
+    whiteToMove_ = true;
 
-    whiteKingCastling = false;
-    whiteQueenCastling = false;
-    blackKingCastling = false;
-    blackQueenCastling = false;
+    whiteKingCastling_ = false;
+    whiteQueenCastling_ = false;
+    blackKingCastling_ = false;
+    blackQueenCastling_ = false;
 
-    enPassant = -1;
+    enPassant_ = -1;
   }
 
   void Position::setInitial() noexcept
@@ -100,50 +100,50 @@ namespace chess
 
     for (size_t i = A2; i <= H2; ++i)
     {
-      board[i] = WHITE_PAWN;
+      board_[i] = WHITE_PAWN;
     }
 
     for (size_t i = A7; i <= H7; ++i)
     {
-      board[i] = BLACK_PAWN;
+      board_[i] = BLACK_PAWN;
     }
 
-    board[A1] = WHITE_ROOK;
-    board[B1] = WHITE_KNIGHT;
-    board[C1] = WHITE_BISHOP;
-    board[D1] = WHITE_QUEEN;
-    board[E1] = WHITE_KING;
-    board[F1] = WHITE_BISHOP;
-    board[G1] = WHITE_KNIGHT;
-    board[H1] = WHITE_ROOK;
+    board_[A1] = WHITE_ROOK;
+    board_[B1] = WHITE_KNIGHT;
+    board_[C1] = WHITE_BISHOP;
+    board_[D1] = WHITE_QUEEN;
+    board_[E1] = WHITE_KING;
+    board_[F1] = WHITE_BISHOP;
+    board_[G1] = WHITE_KNIGHT;
+    board_[H1] = WHITE_ROOK;
 
-    board[A8] = BLACK_ROOK;
-    board[B8] = BLACK_KNIGHT;
-    board[C8] = BLACK_BISHOP;
-    board[D8] = BLACK_QUEEN;
-    board[E8] = BLACK_KING;
-    board[F8] = BLACK_BISHOP;
-    board[G8] = BLACK_KNIGHT;
-    board[H8] = BLACK_ROOK;
+    board_[A8] = BLACK_ROOK;
+    board_[B8] = BLACK_KNIGHT;
+    board_[C8] = BLACK_BISHOP;
+    board_[D8] = BLACK_QUEEN;
+    board_[E8] = BLACK_KING;
+    board_[F8] = BLACK_BISHOP;
+    board_[G8] = BLACK_KNIGHT;
+    board_[H8] = BLACK_ROOK;
 
-    whiteToMove = true;
+    whiteToMove_ = true;
 
-    whiteKingCastling = true;
-    whiteQueenCastling = true;
-    blackKingCastling = true;
-    blackQueenCastling = true;
+    whiteKingCastling_ = true;
+    whiteQueenCastling_ = true;
+    blackKingCastling_ = true;
+    blackQueenCastling_ = true;
 
-    enPassant = -1;
+    enPassant_ = -1;
   }
 
   int Position::getPiece(int square) const
   {
-    return board[square];
+    return board_[square];
   }
 
   bool Position::isWhiteToMove() const noexcept
   {
-    return whiteToMove;
+    return whiteToMove_;
   }
 
   void Position::print() const
@@ -153,12 +153,12 @@ namespace chess
       std::cout << row + 1;
       for (int col = 0; col < 8; ++col)
       {
-        std::cout << " " << pieceToChar(board[8 * row + col]);
+        std::cout << " " << pieceToChar(board_[8 * row + col]);
       }
       std::cout << "\n";
     }
     std::cout << "  a b c d e f g h" << "\n";
-    whiteToMove ? std::cout << "White " : std::cout << "Black ";
+    whiteToMove_ ? std::cout << "White " : std::cout << "Black ";
     std::cout << "to move\n";
   }
 
