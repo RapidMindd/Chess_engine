@@ -1,4 +1,4 @@
-CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP
+CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
 
 main: main.o
 	g++ $^ -o $@
