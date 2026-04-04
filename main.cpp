@@ -1,7 +1,8 @@
 #include <iostream>
 #include "position.hpp"
 
-// TODO: generate moves
+// TODO: place pieces on board (for tests)
+// TODO: print MoveArray (for tests)
 // TODO: castling and enPassant logic
 
 int main()

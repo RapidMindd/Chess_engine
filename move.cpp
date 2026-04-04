@@ -33,6 +33,19 @@ namespace chess
     return !size_;
   }
 
+  void MoveArray::print() const
+  {
+    if (!empty())
+    {
+      std::cout << moves_[0];
+    }
+    for (int i = 1; i < size(); ++i)
+    {
+      std::cout << " " << moves_[i];
+    }
+    std::cout << "\n";
+  }
+
   bool operator==(const Move& move1, const Move& move2)
   {
     return (move1.from_ == move2.from_) && (move1.to_ == move2.to_);

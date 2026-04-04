@@ -51,6 +51,10 @@ namespace chess
     void undoMove(const Move& move, const UndoInfo& undo) noexcept;
 
     void print() const;
+
+    // для тестов
+    void placePiece(int square, Piece piece);
+    void removePiece(int square);
   };
 }
 

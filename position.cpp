@@ -112,6 +112,16 @@ namespace chess
     whiteToMove_ = !whiteToMove_;
   }
 
+  void Position::placePiece(int square, Piece piece)
+  {
+    board_[square] = piece;
+  }
+
+  void Position::removePiece(int square)
+  {
+    board_[square] = EMPTY;
+  }
+
   char pieceToChar(Piece piece) noexcept
   {
     switch (piece)

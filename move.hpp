@@ -27,6 +27,8 @@ namespace chess
     int size() const noexcept;
     bool empty() const noexcept;
 
+    void print() const;
+
   private:
     Move moves_[256];
     int size_;

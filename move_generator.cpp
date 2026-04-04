@@ -17,27 +17,55 @@ namespace chess
     }
   }
 
-  /*void MoveGenerator::generateQueenMoves(const Position& pos, int square, MoveArray& moves)
+  void MoveGenerator::generateQueenMoves(const Position& pos, Square square, MoveArray& moves)
   {
 
   }
 
-  void MoveGenerator::generateKnightMoves(const Position& pos, int square, MoveArray& moves)
+  void MoveGenerator::generateKnightMoves(const Position& pos, Square square, MoveArray& moves)
   {
 
   }
 
-  void MoveGenerator::generateBishopMoves(const Position& pos, int square, MoveArray& moves)
+  void MoveGenerator::generateBishopMoves(const Position& pos, Square square, MoveArray& moves)
   {
 
   }
 
-  void MoveGenerator::generateRookMoves(const Position& pos, int square, MoveArray& moves)
+  void MoveGenerator::generateRookMoves(const Position& pos, Square square, MoveArray& moves)
   {
-    //int pos_in_row =
+    int col = square % 8;
+
+    int sq = square + 8;
+    while (sq <= H8 && pos.getPiece(sq) == EMPTY)
+    {
+      moves.push({square, static_cast< Square >(sq)});
+      sq += 8;
+    }
+
+    sq = square - 8;
+    while (sq >= A1 && pos.getPiece(sq) == EMPTY)
+    {
+      moves.push({square, static_cast< Square >(sq)});
+      sq -= 8;
+    }
+
+    sq = col;
+    while (8 - sq > 0 && pos.getPiece(sq) == EMPTY)
+    {
+      moves.push({square, static_cast< Square >(sq)});
+      ++sq;
+    }
+
+    sq = col;
+    while (sq >= 0 && pos.getPiece(sq) == EMPTY)
+    {
+      moves.push({square, static_cast< Square >(sq)});
+      --sq;
+    }
   }
 
-  void MoveGenerator::generatePawnMoves(const Position& pos, int square, MoveArray& moves)
+  void MoveGenerator::generatePawnMoves(const Position& pos, Square square, MoveArray& moves)
   {
 
   }
@@ -55,5 +83,5 @@ namespace chess
   MoveArray MoveGenerator::generateLegalMoves(const Position& pos)
   {
 
-  }*/
+  }
 }
