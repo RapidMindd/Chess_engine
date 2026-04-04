@@ -1,0 +1,26 @@
+#ifndef MOVE_GENERATOR_HPP
+#define MOVE_GENERATOR_HPP
+
+#include "position.hpp"
+#include "move.hpp"
+
+namespace chess
+{
+  struct MoveGenerator
+  {
+    static MoveArray generatePseudoLegalMoves(const Position& pos);
+    static MoveArray generateLegalMoves(const Position& pos);
+
+    // методы генерируют псевдолегальные ходы
+    static void generateKingMoves(const Position& pos, int square, MoveArray& moves);
+    static void generateQueenMoves(const Position& pos, int square, MoveArray& moves);
+    static void generateKnightMoves(const Position& pos, int square, MoveArray& moves);
+    static void generateBishopMoves(const Position& pos, int square, MoveArray& moves);
+    static void generateRookMoves(const Position& pos, int square, MoveArray& moves);
+    static void generatePawnMoves(const Position& pos, int square, MoveArray& moves);
+
+    static bool isKingAttacked(const Position& pos);
+  };
+}
+
+#endif
