@@ -1,4 +1,5 @@
 #include "position.hpp"
+#include "move.hpp"
 
 namespace chess
 {
@@ -7,7 +8,7 @@ namespace chess
   {
     for (size_t i = 0; i < 64; ++i)
     {
-      board_[i] = 0;
+      board_[i] = EMPTY;
     }
   }
 
@@ -15,7 +16,7 @@ namespace chess
   {
     for (size_t i = 0; i < 64; ++i)
     {
-      board_[i] = 0;
+      board_[i] = EMPTY;
     }
 
     whiteToMove_ = true;
@@ -111,7 +112,7 @@ namespace chess
     whiteToMove_ = !whiteToMove_;
   }
 
-  char pieceToChar(int piece) noexcept
+  char pieceToChar(Piece piece) noexcept
   {
     switch (piece)
     {

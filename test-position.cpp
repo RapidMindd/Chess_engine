@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include "position.hpp"
+#include "move.hpp"
 
 using namespace chess;
 

@@ -12,12 +12,12 @@ namespace chess
     static MoveArray generateLegalMoves(const Position& pos);
 
     // методы генерируют псевдолегальные ходы
-    static void generateKingMoves(const Position& pos, int square, MoveArray& moves);
-    static void generateQueenMoves(const Position& pos, int square, MoveArray& moves);
-    static void generateKnightMoves(const Position& pos, int square, MoveArray& moves);
-    static void generateBishopMoves(const Position& pos, int square, MoveArray& moves);
-    static void generateRookMoves(const Position& pos, int square, MoveArray& moves);
-    static void generatePawnMoves(const Position& pos, int square, MoveArray& moves);
+    static void generateKingMoves(const Position& pos, Square square, MoveArray& moves);
+    static void generateQueenMoves(const Position& pos, Square square, MoveArray& moves);
+    static void generateKnightMoves(const Position& pos, Square square, MoveArray& moves);
+    static void generateBishopMoves(const Position& pos, Square square, MoveArray& moves);
+    static void generateRookMoves(const Position& pos, Square square, MoveArray& moves);
+    static void generatePawnMoves(const Position& pos, Square square, MoveArray& moves);
 
     static bool isKingAttacked(const Position& pos);
   };

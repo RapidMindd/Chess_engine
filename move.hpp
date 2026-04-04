@@ -1,15 +1,18 @@
 #ifndef MOVE_HPP
 #define MOVE_HPP
 
+#include <iosfwd>
+#include "position.hpp"
+
 // #include "/home/yaroslav/programming/aads_2_semester/vector/class_17_03/vector.hpp"
 
 namespace chess
 {
   struct Move
   {
-    int from_;
-    int to_;
-    int promotionPiece_ = 0;
+    Square from_;
+    Square to_;
+    Piece promotionPiece_ = EMPTY;
     bool isEnPassant_ = 0;
     bool isCastling_ = 0;
   };
@@ -28,6 +31,11 @@ namespace chess
     Move moves_[256];
     int size_;
   };
+
+  bool operator==(const Move& move1, const Move& move2);
+  bool operator!=(const Move& move1, const Move& move2);
+  std::ostream& operator<<(std::ostream& out, const Move& move);
+  std::ostream& operator<<(std::ostream& out, Square square);
 }
 
 #endif

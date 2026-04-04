@@ -2,7 +2,7 @@
 
 namespace chess
 {
-  void MoveGenerator::generateKingMoves(const Position& pos, int square, MoveArray& moves)
+  void MoveGenerator::generateKingMoves(const Position& pos, Square square, MoveArray& moves)
   {
     constexpr int possible_moves = 8;
 
@@ -12,7 +12,7 @@ namespace chess
     {
       if (((A1 <= squares[i]) && (squares[i]<= H8)) && (pos.getPiece(squares[i]) == EMPTY))
       {
-        moves.push({square, squares[i]});
+        moves.push({square, static_cast< Square >(squares[i])});
       }
     }
   }
@@ -34,7 +34,7 @@ namespace chess
 
   void MoveGenerator::generateRookMoves(const Position& pos, int square, MoveArray& moves)
   {
-
+    //int pos_in_row =
   }
 
   void MoveGenerator::generatePawnMoves(const Position& pos, int square, MoveArray& moves)

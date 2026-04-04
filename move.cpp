@@ -1,4 +1,5 @@
 #include "move.hpp"
+#include <iostream>
 
 namespace chess
 {
@@ -30,5 +31,27 @@ namespace chess
   bool MoveArray::empty() const noexcept
   {
     return !size_;
+  }
+
+  bool operator==(const Move& move1, const Move& move2)
+  {
+    return (move1.from_ == move2.from_) && (move1.to_ == move2.to_);
+  }
+
+  bool operator!=(const Move& move1, const Move& move2)
+  {
+    return !(move1 == move2);
+  }
+
+  std::ostream& operator<<(std::ostream& out, const Move& move)
+  {
+    return out << move.from_ << "-" << move.to_;
+  }
+
+  std::ostream& operator<<(std::ostream& out, Square square)
+  {
+    char col = 'a' + (square % 8);
+    char row = '1' + (square / 8);
+    return out << col << row;
   }
 }
