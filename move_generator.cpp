@@ -45,38 +45,58 @@ namespace chess
 
   void MoveGenerator::generateRookMoves(const Position& pos, Square square, MoveArray& moves)
   {
-    int col = square % 8;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
 
     // вверх
-    int sq = square + 8;
-    while (sq <= H8 && pos.getPiece(sq) == EMPTY)
+    int dest_square = square + 8;
+    while (dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
     {
-      moves.push({square, static_cast< Square >(sq)});
-      sq += 8;
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square += 8;
     }
 
     // вниз
-    sq = square - 8;
-    while (sq >= A1 && pos.getPiece(sq) == EMPTY)
+    dest_square = square - 8;
+    while (dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
     {
-      moves.push({square, static_cast< Square >(sq)});
-      sq -= 8;
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square -= 8;
     }
 
     // вправо
-    sq = col;
-    while (8 - sq > 0 && pos.getPiece(sq) == EMPTY)
+    int col = (square % 8) + 1;
+    dest_square = square + 1;
+    while (8 - col > 0 && pos.getPiece(dest_square) * is_white_piece < 1)
     {
-      moves.push({square, static_cast< Square >(sq)});
-      ++sq;
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      ++dest_square;
+      ++col;
     }
 
     // влево
-    sq = col;
-    while (sq >= 0 && pos.getPiece(sq) == EMPTY)
+    col = (square % 8) - 1;
+    dest_square = square - 1;
+    while (col >= 0 && pos.getPiece(dest_square) * is_white_piece < 1)
     {
-      moves.push({square, static_cast< Square >(sq)});
-      --sq;
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      --dest_square;
+      --col;
     }
   }
 
