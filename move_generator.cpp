@@ -35,7 +35,28 @@ namespace chess
 
   void MoveGenerator::generateKnightMoves(const Position& pos, Square square, MoveArray& moves)
   {
+    constexpr int possible_moves = 8;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int row = square / 8;
+    const int col = square % 8;
 
+    // начиная с клетки сверху справа, по часовой
+    int row_offset[possible_moves] = {2, 1, -1, -2, -2, -1, 1, 2};
+    int col_offset[possible_moves] = {1, 2, 2, 1, -1, -2, -2, -1};
+
+    for (int i = 0; i < possible_moves; ++i)
+    {
+      int new_row = row + row_offset[i];
+      int new_col = col + col_offset[i];
+      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+      {
+        int dest_square = new_row * 8 + new_col;
+        if (pos.getPiece(dest_square) * is_white_piece < 1)
+        {
+          moves.push({square, static_cast< Square >(dest_square)});
+        }
+      }
+    }
   }
 
   void MoveGenerator::generateBishopMoves(const Position& pos, Square square, MoveArray& moves)

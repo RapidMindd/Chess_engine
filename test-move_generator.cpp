@@ -131,3 +131,71 @@ BOOST_AUTO_TEST_CASE(rook_moves)
   }
   BOOST_TEST(moves.size() == 10);
 }
+
+BOOST_AUTO_TEST_CASE(knight_moves)
+{
+  Position pos;
+  pos.setInitial();
+  MoveArray moves;
+  MoveGenerator generator;
+  generator.generateKnightMoves(pos, B1, moves);
+  generator.generateKnightMoves(pos, G1, moves);
+  Square squares[4] = {C3, A3, H3, F3};
+  for (size_t i = 0; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i).to_ == squares[i]);
+  }
+  BOOST_TEST(moves.size() == 4);
+
+  pos.clear();
+  pos.placePiece(D4, WHITE_KNIGHT);
+  moves.clear();
+  generator.generateKnightMoves(pos, D4, moves);
+  Square squares1[8] = {E6, F5, F3, E2, C2, B3, B5, C6};
+  for (size_t i = 0; i < 8; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({D4, squares1[i]}));
+  }
+
+  pos.clear();
+  pos.placePiece(D4, WHITE_KNIGHT);
+  pos.placePiece(F3, WHITE_PAWN);
+  moves.clear();
+  generator.generateKnightMoves(pos, D4, moves);
+  Square squares2[7] = {E6, F5, E2, C2, B3, B5, C6};
+  for (size_t i = 0; i < 7; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({D4, squares2[i]}));
+  }
+
+  pos.clear();
+  pos.placePiece(D4, WHITE_KNIGHT);
+  pos.placePiece(F3, BLACK_PAWN);
+  moves.clear();
+  generator.generateKnightMoves(pos, D4, moves);
+  Square squares3[8] = {E6, F5, F3, E2, C2, B3, B5, C6};
+  for (size_t i = 0; i < 8; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({D4, squares3[i]}));
+  }
+
+  pos.clear();
+  pos.placePiece(H1, WHITE_KNIGHT);
+  moves.clear();
+  generator.generateKnightMoves(pos, H1, moves);
+  Square squares4[2] = {F2, G3};
+  for (size_t i = 0; i < 2; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({H1, squares4[i]}));
+  }
+
+  pos.setInitial();
+  moves.clear();
+  generator.generateKnightMoves(pos, B8, moves);
+  generator.generateKnightMoves(pos, G8, moves);
+  Square squares6[4] = {C6, A6, H6, F6};
+  for (size_t i = 0; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i).to_ == squares6[i]);
+  }
+}
