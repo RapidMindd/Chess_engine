@@ -61,7 +61,63 @@ namespace chess
 
   void MoveGenerator::generateBishopMoves(const Position& pos, Square square, MoveArray& moves)
   {
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
 
+    // вверх вправо
+    int col = (square % 8) + 1;
+    int dest_square = square + 9;
+    while (8 - col > 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square += 9;
+      ++col;
+    }
+
+    // вниз вправо
+    col = (square % 8) + 1;
+    dest_square = square - 7;
+    while (8 - col > 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square -= 7;
+      ++col;
+    }
+
+    // вниз влево
+    col = (square % 8) - 1;
+    dest_square = square - 9;
+    while (col >= 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square -= 9;
+      --col;
+    }
+
+    // вверх влево
+    col = (square % 8) - 1;
+    dest_square = square + 7;
+    while (col >= 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      moves.push({square, static_cast< Square >(dest_square)});
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square += 7;
+      --col;
+    }
   }
 
   void MoveGenerator::generateRookMoves(const Position& pos, Square square, MoveArray& moves)

@@ -199,3 +199,50 @@ BOOST_AUTO_TEST_CASE(knight_moves)
     BOOST_TEST(moves.get(i).to_ == squares6[i]);
   }
 }
+
+BOOST_AUTO_TEST_CASE(bishop_moves)
+{
+  Position pos;
+  pos.setInitial();
+  MoveArray moves;
+  MoveGenerator generator;
+  generator.generateBishopMoves(pos, C1, moves);
+  generator.generateBishopMoves(pos, F1, moves);
+  BOOST_TEST(moves.size() == 0);
+
+  pos.clear();
+  pos.placePiece(D4, WHITE_BISHOP);
+  moves.clear();
+  generator.generateBishopMoves(pos, D4, moves);
+  Square squares[13] = {E5, F6, G7, H8, E3, F2, G1, C3, B2, A1, C5, B6, A7};
+  for (size_t i = 0; i < 13; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({D4, squares[i]}));
+  }
+  BOOST_TEST(moves.size() == 13);
+
+  pos.clear();
+  pos.placePiece(E4, WHITE_BISHOP);
+  pos.placePiece(C6, BLACK_PAWN);
+  pos.placePiece(F5, WHITE_PAWN);
+  moves.clear();
+  Square squares2[8] = {F3, G2, H1, D3, C2, B1, D5, C6};
+  generator.generateBishopMoves(pos, E4, moves);
+  for (size_t i = 0; i < 8; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E4, squares2[i]}));
+  }
+  BOOST_TEST(moves.size() == 8);
+
+  pos.clear();
+  pos.placePiece(E4, BLACK_BISHOP);
+  pos.placePiece(C6, WHITE_PAWN);
+  pos.placePiece(F5, BLACK_PAWN);
+  moves.clear();
+  generator.generateBishopMoves(pos, E4, moves);
+  for (size_t i = 0; i < 8; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E4, squares2[i]}));
+  }
+  BOOST_TEST(moves.size() == 8);
+}
