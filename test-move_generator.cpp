@@ -246,3 +246,38 @@ BOOST_AUTO_TEST_CASE(bishop_moves)
   }
   BOOST_TEST(moves.size() == 8);
 }
+
+BOOST_AUTO_TEST_CASE(queen_moves)
+{
+  Position pos;
+  pos.setInitial();
+  MoveArray moves;
+  MoveGenerator generator;
+  generator.generateQueenMoves(pos, D1, moves);
+  BOOST_TEST(moves.size() == 0);
+
+  pos.clear();
+  pos.placePiece(A1, WHITE_QUEEN);
+  pos.placePiece(F6, BLACK_PAWN);
+  pos.placePiece(G1, WHITE_ROOK);
+  moves.clear();
+  generator.generateQueenMoves(pos, A1, moves);
+  Square squares[17] = {A2, A3, A4, A5, A6, A7, A8, B1, C1, D1, E1, F1, B2, C3, D4, E5, F6};
+  for (size_t i = 0; i < 17; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({A1, squares[i]}));
+  }
+  BOOST_TEST(moves.size() == 17);
+
+  pos.clear();
+  pos.placePiece(A1, BLACK_QUEEN);
+  pos.placePiece(F6, WHITE_PAWN);
+  pos.placePiece(G1, BLACK_ROOK);
+  moves.clear();
+  generator.generateQueenMoves(pos, A1, moves);
+  for (size_t i = 0; i < 17; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({A1, squares[i]}));
+  }
+  BOOST_TEST(moves.size() == 17);
+}

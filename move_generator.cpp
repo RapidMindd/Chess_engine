@@ -30,7 +30,8 @@ namespace chess
 
   void MoveGenerator::generateQueenMoves(const Position& pos, Square square, MoveArray& moves)
   {
-
+    generateRookMoves(pos, square, moves);
+    generateBishopMoves(pos, square, moves);
   }
 
   void MoveGenerator::generateKnightMoves(const Position& pos, Square square, MoveArray& moves)
