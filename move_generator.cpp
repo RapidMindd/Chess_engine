@@ -180,7 +180,96 @@ namespace chess
 
   void MoveGenerator::generatePawnMoves(const Position& pos, Square square, MoveArray& moves)
   {
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int displacement = is_white_piece == 1 ? 8 : -8;
+    const int start_row = is_white_piece == 1 ? 1 : 6;
+    const int promotion_row = is_white_piece == 1 ? 6 : 1;
 
+    const int row = square / 8;
+    const int col = square % 8;
+
+    auto promote = [&moves, square, is_white_piece](int displacement){
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_QUEEN * is_white_piece)});
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_KNIGHT * is_white_piece)});
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_ROOK * is_white_piece)});
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_BISHOP * is_white_piece)});
+    };
+
+    // ходы вперед
+    if (pos.getPiece(square + displacement) == EMPTY)
+    {
+      if (row == promotion_row)
+      {
+        promote(displacement);
+      }
+      else
+      {
+        moves.push({square, static_cast< Square >(square + displacement)});
+        if (row == start_row && pos.getPiece(square + displacement * 2) == EMPTY)
+        {
+          moves.push({square, static_cast< Square >(square + displacement * 2)});
+        }
+      }
+    }
+
+    // взятия
+    const int take_displacements[2] = {9 * is_white_piece, 7 * is_white_piece};
+    const int corner_col_for_take[2] = {is_white_piece == 1 ? 7 : 0, is_white_piece == 1 ? 0 : 7};
+
+    for (size_t i = 0; i < 2; ++i)
+    {
+      if (col != corner_col_for_take[i])
+      {
+        const int take_piece = pos.getPiece(square + take_displacements[i]);
+        if (take_piece * is_white_piece < 0)
+        {
+          if (row == promotion_row)
+          {
+            promote(take_displacements[i]);
+          }
+          else
+          {
+            moves.push({square, static_cast< Square >(square + take_displacements[i])});
+          }
+        }
+      }
+    }
+
+    /*const int take1_displacement = 9 * is_white_piece;
+    const int corner_col_for_take_1 = is_white_piece == 1 ? 7 : 0;
+    if (col != corner_col_for_take_1)
+    {
+      const int take1_piece = pos.getPiece(square + 9 * is_white_piece);
+      if (take1_piece * is_white_piece < 0)
+      {
+        if (row == promotion_row)
+        {
+          promote(take1_displacement);
+        }
+        else
+        {
+          moves.push({square, static_cast< Square >(square + take1_displacement)});
+        }
+      }
+    }
+
+    const int take2_displacement = 7 * is_white_piece;
+    const int corner_col_for_take_2 = is_white_piece == 1 ? 0 : 7;
+    if (col != corner_col_for_take_2)
+    {
+      const int take2_piece = pos.getPiece(square + 7 * is_white_piece);
+      if (take2_piece * is_white_piece < 0)
+      {
+        if (row == promotion_row)
+        {
+          promote(take2_displacement);
+        }
+        else
+        {
+          moves.push({square, static_cast< Square >(square + take2_displacement)});
+        }
+      }
+    }*/
   }
 
   bool MoveGenerator::isKingAttacked(const Position& pos)

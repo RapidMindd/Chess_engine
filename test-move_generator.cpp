@@ -281,3 +281,189 @@ BOOST_AUTO_TEST_CASE(queen_moves)
   }
   BOOST_TEST(moves.size() == 17);
 }
+
+BOOST_AUTO_TEST_CASE(pawn_moves)
+{
+  Position pos;
+  pos.setInitial();
+  MoveArray moves;
+  MoveGenerator generator;
+  generator.generatePawnMoves(pos, A2, moves);
+  generator.generatePawnMoves(pos, B2, moves);
+  generator.generatePawnMoves(pos, H2, moves);
+  generator.generatePawnMoves(pos, A7, moves);
+  generator.generatePawnMoves(pos, B7, moves);
+  generator.generatePawnMoves(pos, H7, moves);
+  Square squares[12] = {A3, A4, B3, B4, H3, H4, A6, A5, B6, B5, H6, H5};
+  Square init_squares[12] = {A2, A2, B2, B2, H2, H2, A7, A7, B7, B7, H7, H7};
+  for (size_t i = 0; i < 12; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({init_squares[i], squares[i]}));
+  }
+  BOOST_TEST(moves.size() == 12);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(D4, WHITE_PAWN);
+  pos.placePiece(D5, WHITE_PAWN);
+  generator.generatePawnMoves(pos, D4, moves);
+  BOOST_TEST(moves.size() == 0);
+}
+
+BOOST_AUTO_TEST_CASE(pawn_captures)
+{
+  Position pos;
+  MoveArray moves;
+  MoveGenerator generator;
+  pos.placePiece(D4, WHITE_PAWN);
+  pos.placePiece(E5, BLACK_PAWN);
+  pos.placePiece(C5, BLACK_BISHOP);
+  pos.placePiece(F4, WHITE_BISHOP);
+  generator.generatePawnMoves(pos, D4, moves);
+  generator.generatePawnMoves(pos, E5, moves);
+  Square squares[6] = {D5, E5, C5, E4, D4, F4};
+  Square init_squares[6] = {D4, D4, D4, E5, E5, E5};
+  for (size_t i = 0; i < 6; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({init_squares[i], squares[i]}));
+  }
+  BOOST_TEST(moves.size() == 6);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(D4, WHITE_PAWN);
+  pos.placePiece(D5, BLACK_PAWN);
+  pos.placePiece(E5, WHITE_PAWN);
+  pos.placePiece(C5, BLACK_BISHOP);
+  pos.placePiece(E4, WHITE_BISHOP);
+  generator.generatePawnMoves(pos, D4, moves);
+  generator.generatePawnMoves(pos, D5, moves);
+  Square squares2[2] = {C5, E4};
+  BOOST_TEST(moves.get(0) == Move({D4, squares2[0]}));
+  BOOST_TEST(moves.get(1) == Move({D5, squares2[1]}));
+  BOOST_TEST(moves.size() == 2);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(H2, WHITE_PAWN);
+  pos.placePiece(G3, BLACK_PAWN);
+  pos.placePiece(H2 + 9, BLACK_PAWN);
+  pos.placePiece(G1, BLACK_ROOK);
+  generator.generatePawnMoves(pos, H2, moves);
+  Square squares3[3] = {H3, H4, G3};
+  for (size_t i = 0; i < 3; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({H2, squares3[i]}));
+  }
+  BOOST_TEST(moves.size() == 3);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(A2, WHITE_PAWN);
+  pos.placePiece(B3, BLACK_QUEEN);
+  pos.placePiece(A4, BLACK_PAWN);
+  pos.placePiece(A2 + 7, BLACK_PAWN);
+  generator.generatePawnMoves(pos, A2, moves);
+  Square squares4[2] = {A3, B3};
+  for (size_t i = 0; i < 2; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({A2, squares4[i]}));
+  }
+  BOOST_TEST(moves.size() == 2);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(H7, BLACK_PAWN);
+  pos.placePiece(G6, WHITE_PAWN);
+  pos.placePiece(H7 - 7, BLACK_PAWN);
+  pos.placePiece(G8, WHITE_ROOK);
+  generator.generatePawnMoves(pos, H7, moves);
+  Square squares5[3] = {H6, H5, G6};
+  for (size_t i = 0; i < 3; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({H7, squares5[i]}));
+  }
+  BOOST_TEST(moves.size() == 3);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(A7, BLACK_PAWN);
+  pos.placePiece(B6, WHITE_KNIGHT);
+  pos.placePiece(A5, WHITE_PAWN);
+  pos.placePiece(A7 - 9, WHITE_PAWN);
+  generator.generatePawnMoves(pos, A7, moves);
+  Square squares6[2] = {A6, B6};
+  for (size_t i = 0; i < 2; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({A7, squares6[i]}));
+  }
+  BOOST_TEST(moves.size() == 2);
+}
+
+BOOST_AUTO_TEST_CASE(pawn_promotions)
+{
+  Position pos;
+  MoveArray moves;
+  MoveGenerator generator;
+  pos.placePiece(E7, WHITE_PAWN);
+  generator.generatePawnMoves(pos, E7, moves);
+  Piece pieces[4] = {WHITE_QUEEN, WHITE_KNIGHT, WHITE_ROOK, WHITE_BISHOP};
+  for (size_t i = 0; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E7, E8, pieces[i]}));
+  }
+  BOOST_TEST(moves.size() == 4);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(E2, BLACK_PAWN);
+  generator.generatePawnMoves(pos, E2, moves);
+  Piece pieces2[4] = {BLACK_QUEEN, BLACK_KNIGHT, BLACK_ROOK, BLACK_BISHOP};
+  for (size_t i = 0; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E2, E1, pieces2[i]}));
+  }
+  BOOST_TEST(moves.size() == 4);
+}
+
+BOOST_AUTO_TEST_CASE(pawn_promotions_with_capture)
+{
+  Position pos;
+  MoveArray moves;
+  MoveGenerator generator;
+  pos.placePiece(E7, WHITE_PAWN);
+  pos.placePiece(F8, BLACK_KNIGHT);
+  pos.placePiece(D8, WHITE_KNIGHT);
+  pos.placePiece(H7, WHITE_PAWN);
+  pos.placePiece(G8, BLACK_KNIGHT);
+  pos.placePiece(H8, WHITE_BISHOP);
+  generator.generatePawnMoves(pos, E7, moves);
+  generator.generatePawnMoves(pos, H7, moves);
+  Piece pieces[4] = {WHITE_QUEEN, WHITE_KNIGHT, WHITE_ROOK, WHITE_BISHOP};
+  for (size_t i = 0; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E7, E8, pieces[i]}));
+    BOOST_TEST(moves.get(i + 4) == Move({E7, F8, pieces[i]}));
+    BOOST_TEST(moves.get(i + 8) == Move({H7, G8, pieces[i]}));
+  }
+  BOOST_TEST(moves.size() == 12);
+
+  pos.clear();
+  moves.clear();
+  pos.placePiece(E2, BLACK_PAWN);
+  pos.placePiece(D1, WHITE_KNIGHT);
+  pos.placePiece(F1, BLACK_KNIGHT);
+  pos.placePiece(A2, BLACK_PAWN);
+  pos.placePiece(B1, WHITE_KNIGHT);
+  generator.generatePawnMoves(pos, E2, moves);
+  generator.generatePawnMoves(pos, A2, moves);
+  Piece pieces2[4] = {BLACK_QUEEN, BLACK_KNIGHT, BLACK_ROOK, BLACK_BISHOP};
+  for (size_t i = 0; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E2, E1, pieces2[i]}));
+    BOOST_TEST(moves.get(i + 4) == Move({E2, D1, pieces2[i]}));
+    BOOST_TEST(moves.get(i + 8) == Move({A2, A1, pieces2[i]}));
+    BOOST_TEST(moves.get(i + 12) == Move({A2, B1, pieces2[i]}));
+  }
+  BOOST_TEST(moves.size() == 16);
+}

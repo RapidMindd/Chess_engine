@@ -48,7 +48,10 @@ namespace chess
 
   bool operator==(const Move& move1, const Move& move2)
   {
-    return (move1.from_ == move2.from_) && (move1.to_ == move2.to_);
+    return (move1.from_ == move2.from_) && (move1.to_ == move2.to_)
+    && (move1.promotionPiece_ == move2.promotionPiece_)
+    && (move1.isCastling_ == move2.isCastling_)
+    && (move1.isEnPassant_ == move2.isEnPassant_);
   }
 
   bool operator!=(const Move& move1, const Move& move2)
