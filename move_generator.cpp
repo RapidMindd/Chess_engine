@@ -285,7 +285,44 @@ namespace chess
 
   MoveArray MoveGenerator::generatePseudoLegalMoves(const Position& pos)
   {
-
+    MoveArray moves;
+    const int side_to_move = pos.isWhiteToMove() ? 1 : -1;
+    for (int i = A1; i <= H8; ++i)
+    {
+      const int piece = pos.getPiece(i);
+      if (piece * side_to_move <= 0)
+      {
+        continue;
+      }
+      const int is_white_piece = piece > 0 ? 1 : -1;
+      const int abs_piece = piece * is_white_piece;
+      if (abs_piece <= 0)
+      {
+        continue;
+      }
+      switch (abs_piece)
+      {
+        case WHITE_KNIGHT:
+          generateKnightMoves(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_BISHOP:
+          generateBishopMoves(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_QUEEN:
+          generateQueenMoves(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_PAWN:
+          generatePawnMoves(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_ROOK:
+          generateRookMoves(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_KING:
+          generateKingMoves(pos, static_cast< Square >(i), moves);
+          break;
+      }
+    }
+    return moves;
   }
 
   MoveArray MoveGenerator::generateLegalMoves(const Position& pos)

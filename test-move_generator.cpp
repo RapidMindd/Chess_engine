@@ -510,3 +510,27 @@ BOOST_AUTO_TEST_CASE(en_passant)
   }
   BOOST_TEST(moves.size() == 3);
 }
+
+BOOST_AUTO_TEST_CASE(generate_pseudo_legal_moves)
+{
+  Position pos;
+  MoveGenerator generator;
+  pos.setInitial();
+  MoveArray moves = generator.generatePseudoLegalMoves(pos);
+  Square squares[20] = {C3, A3, H3, F3, A3, A4, B3, B4, C3, C4, D3, D4,
+  E3, E4, F3, F4, G3, G4, H3, H4};
+  for (size_t i = 0; i < 2; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({B1, squares[i]}));
+  }
+  for (size_t i = 2; i < 4; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({G1, squares[i]}));
+  }
+  for (size_t i = 0, k = 0; i < 8; i += 2, ++k)
+  {
+    Square square_from = static_cast< Square >(A2 + k);
+    BOOST_TEST(moves.get(i + 4) == Move({square_from, squares[i + 4]}));
+    BOOST_TEST(moves.get(i + 5) == Move({square_from, squares[i + 5]}));
+  }
+}
