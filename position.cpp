@@ -122,6 +122,16 @@ namespace chess
     board_[square] = EMPTY;
   }
 
+  int Position::getEnPassantSquare() const
+  {
+    return enPassantSquare_;
+  }
+
+  void Position::setEnPassantSquare(int square)
+  {
+    enPassantSquare_ = square;
+  }
+
   char pieceToChar(Piece piece) noexcept
   {
     switch (piece)

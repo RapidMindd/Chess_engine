@@ -184,6 +184,7 @@ namespace chess
     const int displacement = is_white_piece == 1 ? 8 : -8;
     const int start_row = is_white_piece == 1 ? 1 : 6;
     const int promotion_row = is_white_piece == 1 ? 6 : 1;
+    const int enPassant_row = is_white_piece == 1 ? 4 : 3;
 
     const int row = square / 8;
     const int col = square % 8;
@@ -231,6 +232,11 @@ namespace chess
           {
             moves.push({square, static_cast< Square >(square + take_displacements[i])});
           }
+        }
+        // взятие на проходе
+        else if (row == enPassant_row && pos.getEnPassantSquare() == square + take_displacements[i])
+        {
+          moves.push({square, static_cast< Square >(square + take_displacements[i]), EMPTY, true});
         }
       }
     }

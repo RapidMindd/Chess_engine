@@ -467,3 +467,21 @@ BOOST_AUTO_TEST_CASE(pawn_promotions_with_capture)
   }
   BOOST_TEST(moves.size() == 16);
 }
+
+BOOST_AUTO_TEST_CASE(en_passant)
+{
+  Position pos;
+  MoveArray moves;
+  MoveGenerator generator;
+  pos.setEnPassantSquare(E6);
+  pos.placePiece(D5, WHITE_PAWN);
+  pos.placePiece(F5, WHITE_PAWN);
+  pos.placePiece(E5, BLACK_PAWN);
+  pos.placePiece(D6, BLACK_PAWN);
+  pos.placePiece(F6, BLACK_PAWN);
+  generator.generatePawnMoves(pos, D5, moves);
+  generator.generatePawnMoves(pos, F5, moves);
+  BOOST_TEST(moves.get(0) == Move({D5, E6, EMPTY, true}));
+  BOOST_TEST(moves.get(1) == Move({F5, E6, EMPTY, true}));
+  BOOST_TEST(moves.size() == 2);
+}

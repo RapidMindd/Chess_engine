@@ -45,6 +45,7 @@ namespace chess
     void clear() noexcept;
 
     int getPiece(int square) const;
+    int getEnPassantSquare() const;
     bool isWhiteToMove() const noexcept;
 
     void makeMove(const Move& move, UndoInfo& undo) noexcept;
@@ -55,6 +56,7 @@ namespace chess
     // для тестов
     void placePiece(int square, Piece piece);
     void removePiece(int square);
+    void setEnPassantSquare(int square);
   };
 }
 
