@@ -484,4 +484,29 @@ BOOST_AUTO_TEST_CASE(en_passant)
   BOOST_TEST(moves.get(0) == Move({D5, E6, EMPTY, true}));
   BOOST_TEST(moves.get(1) == Move({F5, E6, EMPTY, true}));
   BOOST_TEST(moves.size() == 2);
+
+  pos.clear();
+  moves.clear();
+  pos.setEnPassantSquare(G3);
+  pos.placePiece(H4, BLACK_PAWN);
+  pos.placePiece(G4, WHITE_PAWN);
+  pos.placePiece(A4, WHITE_PAWN);
+  pos.placePiece(H3, WHITE_PAWN);
+  generator.generatePawnMoves(pos, H4, moves);
+  BOOST_TEST(moves.get(0) == Move({H4, G3, EMPTY, true}));
+
+  pos.clear();
+  moves.clear();
+  pos.setEnPassantSquare(D6);
+  pos.placePiece(E5, WHITE_PAWN);
+  pos.placePiece(D5, BLACK_PAWN);
+  pos.placePiece(F6, BLACK_PAWN);
+  generator.generatePawnMoves(pos, E5, moves);
+  Square squares[3] = {E6, F6, D6};
+  bool enPassants[3] = {false, false, true};
+  for (size_t i = 0; i < 3; ++i)
+  {
+    BOOST_TEST(moves.get(i) == Move({E5, squares[i], EMPTY, enPassants[i]}));
+  }
+  BOOST_TEST(moves.size() == 3);
 }
