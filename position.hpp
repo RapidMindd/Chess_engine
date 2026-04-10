@@ -38,14 +38,19 @@ namespace chess
 
     int enPassantSquare_ = -1;
 
+    int whiteKingSquare_ = -1;
+    int blackKingSquare_ = -1;
+
   public:
     Position();
+    Position(std::initializer_list< std::pair< Square, Piece > > pieces, bool whiteToMove = true);
 
     void setInitial() noexcept;
     void clear() noexcept;
 
     int getPiece(int square) const;
     int getEnPassantSquare() const;
+    int getOppositeColourKingSquare() const;
     bool isWhiteToMove() const noexcept;
 
     void makeMove(const Move& move, UndoInfo& undo) noexcept;

@@ -19,7 +19,7 @@ namespace chess
     static void generateRookMoves(const Position& pos, Square square, MoveArray& moves);
     static void generatePawnMoves(const Position& pos, Square square, MoveArray& moves);
 
-    static bool isKingAttacked(const Position& pos);
+    static bool isKingAttacked(const Position& pos, Square kingSquare);
   };
 }
 

@@ -70,4 +70,33 @@ namespace chess
     char row = '1' + (square / 8);
     return out << col << row;
   }
+
+  bool containsMove(const MoveArray& moves, Move move)
+  {
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      if (moves.get(i) == move)
+      {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isEqualArraysUnordered(const MoveArray& moves1, const MoveArray& moves2)
+  {
+    if (moves1.size() != moves2.size())
+    {
+      return false;
+    }
+
+    for (int i = 0; i < moves1.size(); ++i)
+    {
+      if (!containsMove(moves2, moves1.get(i)))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
 }

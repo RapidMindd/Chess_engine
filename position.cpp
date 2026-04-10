@@ -3,13 +3,29 @@
 
 namespace chess
 {
-  Position::Position():
-  whiteToMove_(true)
+  Position::Position()
   {
-    for (size_t i = 0; i < 64; ++i)
+    clear();
+  }
+
+  Position::Position(std::initializer_list< std::pair< Square, Piece > > pieces, bool whiteToMove)
+  {
+    clear();
+    for (auto it = pieces.begin(); it != pieces.end(); ++it)
     {
-      board_[i] = EMPTY;
+      Square square = it->first;
+      Piece piece = it->second;
+      board_[square] = piece;
+      if (piece == WHITE_KING)
+      {
+        whiteKingSquare_ = square;
+      }
+      else if (piece == BLACK_KING)
+      {
+        blackKingSquare_ = square;
+      }
     }
+    whiteToMove_ = whiteToMove;
   }
 
   void Position::clear() noexcept
@@ -27,6 +43,9 @@ namespace chess
     blackQueenCastling_ = false;
 
     enPassantSquare_ = -1;
+
+    whiteKingSquare_ = -1;
+    blackKingSquare_ = -1;
   }
 
   void Position::setInitial() noexcept
@@ -69,6 +88,9 @@ namespace chess
     blackQueenCastling_ = true;
 
     enPassantSquare_ = -1;
+
+    whiteKingSquare_ = E1;
+    blackKingSquare_ = E8;
   }
 
   int Position::getPiece(int square) const
@@ -99,6 +121,11 @@ namespace chess
 
   void Position::makeMove(const Move& move, UndoInfo& undo) noexcept
   {
+    const int is_white_piece = isWhiteToMove() ? 1 : -1;
+    if (getPiece(move.from_) == WHITE_KING * is_white_piece)
+    {
+      is_white_piece == 1 ? whiteKingSquare_ = move.to_ : blackKingSquare_ = move.to_;
+    }
     undo.capturedPiece_ = board_[move.to_];
     board_[move.to_] = board_[move.from_];
     board_[move.from_] = EMPTY;
@@ -107,6 +134,11 @@ namespace chess
 
   void Position::undoMove(const Move& move, const UndoInfo& undo) noexcept
   {
+    const int is_white_piece = isWhiteToMove() ? -1 : 1;
+    if (getPiece(move.to_) == WHITE_KING * is_white_piece)
+    {
+      is_white_piece == 1 ? whiteKingSquare_ = move.from_ : blackKingSquare_ = move.from_;
+    }
     board_[move.from_] = board_[move.to_];
     board_[move.to_] = undo.capturedPiece_;
     whiteToMove_ = !whiteToMove_;
@@ -115,11 +147,24 @@ namespace chess
   void Position::placePiece(int square, Piece piece)
   {
     board_[square] = piece;
+    const int is_white_piece = piece > 0 ? 1 : -1;
+    if (piece == WHITE_KING * is_white_piece)
+    {
+      is_white_piece == 1 ? whiteKingSquare_ = square : blackKingSquare_ = square;
+    }
   }
 
   void Position::removePiece(int square)
   {
     board_[square] = EMPTY;
+    if (getPiece(square) == WHITE_KING)
+    {
+      whiteKingSquare_ = -1;
+    }
+    else if (getPiece(square) == BLACK_KING)
+    {
+      blackKingSquare_ = -1;
+    }
   }
 
   int Position::getEnPassantSquare() const
@@ -130,6 +175,11 @@ namespace chess
   void Position::setEnPassantSquare(int square)
   {
     enPassantSquare_ = square;
+  }
+
+  int Position::getOppositeColourKingSquare() const
+  {
+    return isWhiteToMove() ? blackKingSquare_ : whiteKingSquare_;
   }
 
   char pieceToChar(Piece piece) noexcept

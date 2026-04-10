@@ -38,6 +38,9 @@ namespace chess
   bool operator!=(const Move& move1, const Move& move2);
   std::ostream& operator<<(std::ostream& out, const Move& move);
   std::ostream& operator<<(std::ostream& out, Square square);
+
+  bool containsMove(const MoveArray& moves, Move move);
+  bool isEqualArraysUnordered(const MoveArray& moves1, const MoveArray& moves2);
 }
 
 #endif

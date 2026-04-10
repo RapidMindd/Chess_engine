@@ -240,47 +240,20 @@ namespace chess
         }
       }
     }
-
-    /*const int take1_displacement = 9 * is_white_piece;
-    const int corner_col_for_take_1 = is_white_piece == 1 ? 7 : 0;
-    if (col != corner_col_for_take_1)
-    {
-      const int take1_piece = pos.getPiece(square + 9 * is_white_piece);
-      if (take1_piece * is_white_piece < 0)
-      {
-        if (row == promotion_row)
-        {
-          promote(take1_displacement);
-        }
-        else
-        {
-          moves.push({square, static_cast< Square >(square + take1_displacement)});
-        }
-      }
-    }
-
-    const int take2_displacement = 7 * is_white_piece;
-    const int corner_col_for_take_2 = is_white_piece == 1 ? 0 : 7;
-    if (col != corner_col_for_take_2)
-    {
-      const int take2_piece = pos.getPiece(square + 7 * is_white_piece);
-      if (take2_piece * is_white_piece < 0)
-      {
-        if (row == promotion_row)
-        {
-          promote(take2_displacement);
-        }
-        else
-        {
-          moves.push({square, static_cast< Square >(square + take2_displacement)});
-        }
-      }
-    }*/
   }
 
-  bool MoveGenerator::isKingAttacked(const Position& pos)
+  bool MoveGenerator::isKingAttacked(const Position& pos, Square kingSquare)
   {
-
+    MoveArray moves = generatePseudoLegalMoves(pos);
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      if (moves.get(i).to_ == kingSquare)
+      {
+        return true;
+        break;
+      }
+    }
+    return false;
   }
 
   MoveArray MoveGenerator::generatePseudoLegalMoves(const Position& pos)
@@ -327,6 +300,20 @@ namespace chess
 
   MoveArray MoveGenerator::generateLegalMoves(const Position& pos)
   {
-
+    MoveArray moves = generatePseudoLegalMoves(pos);
+    MoveArray legal_moves;
+    Position new_pos = pos;
+    UndoInfo undo;
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      Move move = moves.get(i);
+      new_pos.makeMove(move, undo);
+      if (!isKingAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
+      {
+        legal_moves.push(move);
+      }
+      new_pos.undoMove(move, undo);
+    }
+    return legal_moves;
   }
 }

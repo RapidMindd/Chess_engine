@@ -513,6 +513,23 @@ BOOST_AUTO_TEST_CASE(en_passant)
 
 BOOST_AUTO_TEST_CASE(generate_pseudo_legal_moves)
 {
+  Position pos({
+    {H1, WHITE_KNIGHT}, {F2, WHITE_PAWN}, {G3, WHITE_PAWN}, {F3, BLACK_PAWN}, {G4, BLACK_PAWN}
+  });
+  MoveGenerator generator;
+  MoveArray moves = generator.generatePseudoLegalMoves(pos);
+  BOOST_TEST(moves.size() == 0);
+
+  Position pos2({
+    {H1, WHITE_KING}, {G8, BLACK_ROOK}, {G1, WHITE_KNIGHT}
+  });
+  moves.clear();
+  moves = generator.generatePseudoLegalMoves(pos2);
+  BOOST_TEST(moves.size() == 5);
+}
+
+BOOST_AUTO_TEST_CASE(generate_pseudo_legal_moves_in_initial)
+{
   Position pos;
   MoveGenerator generator;
   pos.setInitial();
@@ -533,4 +550,42 @@ BOOST_AUTO_TEST_CASE(generate_pseudo_legal_moves)
     BOOST_TEST(moves.get(i + 4) == Move({square_from, squares[i + 4]}));
     BOOST_TEST(moves.get(i + 5) == Move({square_from, squares[i + 5]}));
   }
+}
+
+BOOST_AUTO_TEST_CASE(generate_legal_moves)
+{
+  Position pos({
+    {H1, WHITE_KING}, {G8, BLACK_ROOK}
+  });
+  MoveGenerator generator;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(containsMove(moves, Move{H1, H2}));
+  BOOST_TEST(moves.size() == 1);
+
+  Position pos2({
+    {H1, WHITE_KING}, {H2, WHITE_KNIGHT}, {G8, BLACK_ROOK}, {H8, BLACK_ROOK}
+  });
+  moves.clear();
+  moves = generator.generateLegalMoves(pos2);
+  BOOST_TEST(moves.size() == 0);
+
+  Position pos3({
+    {H1, WHITE_KING}, {H2, WHITE_ROOK}, {H4, BLACK_ROOK}, {A2, BLACK_ROOK}
+  });
+  moves.clear();
+  moves = generator.generateLegalMoves(pos3);
+  BOOST_TEST(containsMove(moves, Move{H2, H3}));
+  BOOST_TEST(containsMove(moves, Move{H2, H4}));
+  BOOST_TEST(containsMove(moves, Move{H1, G1}));
+  BOOST_TEST(moves.size() == 3);
+}
+
+BOOST_AUTO_TEST_CASE(generate_legal_moves_in_initial)
+{
+  Position pos;
+  MoveGenerator generator;
+  pos.setInitial();
+  MoveArray pseudo = generator.generatePseudoLegalMoves(pos);
+  MoveArray legal = generator.generateLegalMoves(pos);
+  BOOST_TEST(isEqualArraysUnordered(pseudo, legal));
 }
