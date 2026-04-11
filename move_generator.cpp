@@ -349,4 +349,26 @@ namespace chess
     }
     return legal_moves;
   }
+
+  bool MoveGenerator::isMate(const Position& pos)
+  {
+    Position toggled_pos = pos.getToggledSideToMovePosition();
+    if (generateLegalMoves(pos).empty()
+      && isSquareAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
+    {
+      return true;
+    }
+    return false;
+  }
+
+  bool MoveGenerator::isStaleMate(const Position& pos)
+  {
+    Position toggled_pos = pos.getToggledSideToMovePosition();
+    if (generateLegalMoves(pos).empty()
+      && !isSquareAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
+    {
+      return true;
+    }
+    return false;
+  }
 }

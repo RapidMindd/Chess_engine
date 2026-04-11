@@ -21,6 +21,9 @@ namespace chess
     static void generateCastlingMoves(const Position& pos, Square square, MoveArray& moves);
 
     static bool isSquareAttacked(const Position& pos, Square square);
+
+    static bool isMate(const Position& pos);
+    static bool isStaleMate(const Position& pos);
   };
 }
 

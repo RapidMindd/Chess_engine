@@ -747,3 +747,21 @@ BOOST_AUTO_TEST_CASE(castling_through_pawn_attacked_square)
   BOOST_TEST(!containsMove(moves, getMove(moves, E1, G1)));
   BOOST_TEST(!containsMove(moves, getMove(moves, E1, C1)));
 }
+
+BOOST_AUTO_TEST_CASE(mate)
+{
+  Position pos({
+    {H6, WHITE_KING}, {H8, BLACK_KING}, {F8, WHITE_ROOK}
+  }, 0);
+  MoveGenerator generator;
+  BOOST_TEST(generator.isMate(pos));
+}
+
+BOOST_AUTO_TEST_CASE(stale_mate)
+{
+  Position pos({
+    {H6, WHITE_KING}, {H8, BLACK_KING}, {G6, WHITE_ROOK}
+  }, 0);
+  MoveGenerator generator;
+  BOOST_TEST(generator.isStaleMate(pos));
+}
