@@ -28,6 +28,30 @@ namespace chess
     }
   }
 
+  void MoveGenerator::generateCastlingMoves(const Position& pos, Square square, MoveArray& moves)
+  {
+    Position toggled_pos = pos.getToggledSideToMovePosition();
+    Castling rights = pos.getCastling();
+    if (rights.king_ && pos.getPiece(square + 1) == EMPTY && pos.getPiece(square + 2) == EMPTY)
+    {
+      if (!isSquareAttacked(toggled_pos, static_cast< Square >(square))
+      && !isSquareAttacked(toggled_pos, static_cast< Square >(square + 1)))
+      {
+        moves.push({square, static_cast< Square >(square + 2), EMPTY, 0, 1});
+      }
+    }
+    if (rights.queen_ && pos.getPiece(square - 1) == EMPTY
+    && pos.getPiece(square - 2) == EMPTY && pos.getPiece(square - 3) == EMPTY)
+    {
+      if (!isSquareAttacked(toggled_pos, static_cast< Square >(square))
+      && !isSquareAttacked(toggled_pos, static_cast< Square >(square - 1)))
+      {
+        moves.push({square, static_cast< Square >(square - 2), EMPTY, 0, 1});
+      }
+    }
+  }
+
+
   void MoveGenerator::generateQueenMoves(const Position& pos, Square square, MoveArray& moves)
   {
     generateRookMoves(pos, square, moves);
@@ -242,12 +266,12 @@ namespace chess
     }
   }
 
-  bool MoveGenerator::isKingAttacked(const Position& pos, Square kingSquare)
+  bool MoveGenerator::isSquareAttacked(const Position& pos, Square square)
   {
-    MoveArray moves = generatePseudoLegalMoves(pos);
+    MoveArray moves = generatePseudoLegalMoves(pos, 0);
     for (int i = 0; i < moves.size(); ++i)
     {
-      if (moves.get(i).to_ == kingSquare)
+      if (moves.get(i).to_ == square)
       {
         return true;
         break;
@@ -256,7 +280,7 @@ namespace chess
     return false;
   }
 
-  MoveArray MoveGenerator::generatePseudoLegalMoves(const Position& pos)
+  MoveArray MoveGenerator::generatePseudoLegalMoves(const Position& pos, bool castling)
   {
     MoveArray moves;
     const int side_to_move = pos.isWhiteToMove() ? 1 : -1;
@@ -292,6 +316,10 @@ namespace chess
           break;
         case WHITE_KING:
           generateKingMoves(pos, static_cast< Square >(i), moves);
+          if (castling)
+          {
+            generateCastlingMoves(pos, static_cast< Square >(i), moves);
+          }
           break;
       }
     }
@@ -308,7 +336,7 @@ namespace chess
     {
       Move move = moves.get(i);
       new_pos.makeMove(move, undo);
-      if (!isKingAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
+      if (!isSquareAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
       {
         legal_moves.push(move);
       }

@@ -8,7 +8,7 @@ namespace chess
 {
   struct MoveGenerator
   {
-    static MoveArray generatePseudoLegalMoves(const Position& pos);
+    static MoveArray generatePseudoLegalMoves(const Position& pos, bool castling = 1);
     static MoveArray generateLegalMoves(const Position& pos);
 
     // методы генерируют псевдолегальные ходы
@@ -18,8 +18,9 @@ namespace chess
     static void generateBishopMoves(const Position& pos, Square square, MoveArray& moves);
     static void generateRookMoves(const Position& pos, Square square, MoveArray& moves);
     static void generatePawnMoves(const Position& pos, Square square, MoveArray& moves);
+    static void generateCastlingMoves(const Position& pos, Square square, MoveArray& moves);
 
-    static bool isKingAttacked(const Position& pos, Square kingSquare);
+    static bool isSquareAttacked(const Position& pos, Square square);
   };
 }
 

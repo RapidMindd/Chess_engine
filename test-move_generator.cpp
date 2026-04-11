@@ -664,3 +664,63 @@ BOOST_AUTO_TEST_CASE(undo_en_passant_move)
   pos.undoMove(getMove(white_moves, E5, D6), undo);
   BOOST_TEST(isEqualArraysUnordered(white_moves, generator.generateLegalMoves(pos)));
 }
+
+BOOST_AUTO_TEST_CASE(castling)
+{
+  Position pos({
+    {E1, WHITE_KING}, {A1, WHITE_ROOK}, {H1, WHITE_ROOK}
+  }, 1, 1, 1);
+  MoveGenerator generator;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(containsMove(moves, getMove(moves, E1, G1)));
+  BOOST_TEST(containsMove(moves, getMove(moves, E1, C1)));
+
+  pos.placePiece(C1, WHITE_BISHOP);
+  pos.placePiece(F1, BLACK_BISHOP);
+  moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, G1)));
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, C1)));
+
+  pos.removePiece(C1);
+  pos.removePiece(F1);
+  pos.placePiece(F8, BLACK_ROOK);
+  moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, G1)));
+  BOOST_TEST(containsMove(moves, getMove(moves, E1, C1)));
+
+  pos.placePiece(D8, BLACK_ROOK);
+  moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, G1)));
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, C1)));
+
+  pos.removePiece(F8);
+  pos.removePiece(D8);
+  pos.placePiece(E8, BLACK_ROOK);
+  moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, G1)));
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, C1)));
+
+  Position pos2({
+    {E8, BLACK_KING}, {A8, BLACK_ROOK}, {H8, BLACK_ROOK}
+  }, 0, 0, 0, 1, 1);
+  pos2.placePiece(G1, WHITE_ROOK);
+  moves = generator.generateLegalMoves(pos2);
+  BOOST_TEST(!containsMove(moves, getMove(moves, E8, G8)));
+  BOOST_TEST(containsMove(moves, getMove(moves, E8, C8)));
+}
+
+BOOST_AUTO_TEST_CASE(undo_castling)
+{
+  Position pos({
+    {E1, WHITE_KING}, {A1, WHITE_ROOK}, {H1, WHITE_ROOK}
+  }, 1, 1, 1);
+  MoveGenerator generator;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  UndoInfo undo;
+  pos.makeMove(getMove(moves, E1, G1), undo);
+  BOOST_TEST(pos.getPiece(H1) == EMPTY);
+  BOOST_TEST(pos.getPiece(G1) == WHITE_KING);
+  BOOST_TEST(pos.getPiece(F1) == WHITE_ROOK);
+  pos.undoMove(getMove(moves, E1, G1), undo);
+  BOOST_TEST(isEqualArraysUnordered(moves, generator.generateLegalMoves(pos)));
+}
