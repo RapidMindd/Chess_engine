@@ -724,3 +724,26 @@ BOOST_AUTO_TEST_CASE(undo_castling)
   pos.undoMove(getMove(moves, E1, G1), undo);
   BOOST_TEST(isEqualArraysUnordered(moves, generator.generateLegalMoves(pos)));
 }
+
+BOOST_AUTO_TEST_CASE(moves_if_front_of_pawn)
+{
+  Position pos({
+    {F5, WHITE_KING}, {E7, BLACK_PAWN}
+  });
+  MoveGenerator generator;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(containsMove(moves, getMove(moves, F5, E5)));
+  BOOST_TEST(containsMove(moves, getMove(moves, F5, E6)));
+  BOOST_TEST(!containsMove(moves, getMove(moves, F5, F6)));
+}
+
+BOOST_AUTO_TEST_CASE(castling_through_pawn_attacked_square)
+{
+  Position pos({
+    {E1, WHITE_KING}, {E2, BLACK_PAWN}, {A1, WHITE_ROOK}, {H1, WHITE_ROOK}
+  }, 1, 1, 1);
+  MoveGenerator generator;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, G1)));
+  BOOST_TEST(!containsMove(moves, getMove(moves, E1, C1)));
+}

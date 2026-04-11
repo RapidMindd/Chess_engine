@@ -32,10 +32,13 @@ namespace chess
   {
     Position toggled_pos = pos.getToggledSideToMovePosition();
     Castling rights = pos.getCastling();
+    UndoInfo undo;
+    Position half_king_move_pos = pos;
     if (rights.king_ && pos.getPiece(square + 1) == EMPTY && pos.getPiece(square + 2) == EMPTY)
     {
+      half_king_move_pos.makeMove(Move{square, static_cast< Square >(square + 1)}, undo);
       if (!isSquareAttacked(toggled_pos, static_cast< Square >(square))
-      && !isSquareAttacked(toggled_pos, static_cast< Square >(square + 1)))
+      && !isSquareAttacked(half_king_move_pos, static_cast< Square >(square + 1)))
       {
         moves.push({square, static_cast< Square >(square + 2), EMPTY, 0, 1});
       }
@@ -43,8 +46,10 @@ namespace chess
     if (rights.queen_ && pos.getPiece(square - 1) == EMPTY
     && pos.getPiece(square - 2) == EMPTY && pos.getPiece(square - 3) == EMPTY)
     {
+      half_king_move_pos.undoMove(Move{square, static_cast< Square >(square + 1)}, undo);
+      half_king_move_pos.makeMove(Move{square, static_cast< Square >(square - 1)}, undo);
       if (!isSquareAttacked(toggled_pos, static_cast< Square >(square))
-      && !isSquareAttacked(toggled_pos, static_cast< Square >(square - 1)))
+      && !isSquareAttacked(half_king_move_pos, static_cast< Square >(square - 1)))
       {
         moves.push({square, static_cast< Square >(square - 2), EMPTY, 0, 1});
       }

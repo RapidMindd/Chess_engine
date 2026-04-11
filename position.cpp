@@ -269,15 +269,15 @@ namespace chess
 
   void Position::removePiece(int square)
   {
-    board_[square] = EMPTY;
-    if (getPiece(square) == WHITE_KING)
+    if (board_[square] == WHITE_KING)
     {
       whiteKingSquare_ = -1;
     }
-    else if (getPiece(square) == BLACK_KING)
+    else if (board_[square] == BLACK_KING)
     {
       blackKingSquare_ = -1;
     }
+    board_[square] = EMPTY;
   }
 
   int Position::getEnPassantSquare() const
