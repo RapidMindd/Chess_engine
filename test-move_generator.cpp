@@ -578,6 +578,23 @@ BOOST_AUTO_TEST_CASE(generate_legal_moves)
   BOOST_TEST(containsMove(moves, Move{H2, H4}));
   BOOST_TEST(containsMove(moves, Move{H1, G1}));
   BOOST_TEST(moves.size() == 3);
+
+  Position pos4({
+    {H1, WHITE_KING}, {H2, WHITE_PAWN}, {H5, BLACK_ROOK}, {G3, BLACK_ROOK}
+  });
+  moves.clear();
+  moves = generator.generateLegalMoves(pos4);
+  BOOST_TEST(containsMove(moves, Move{H2, H3}));
+  BOOST_TEST(containsMove(moves, Move{H2, H4}));
+  BOOST_TEST(moves.size() == 2);
+
+  Position pos5({
+    {H1, WHITE_KING}, {A2, WHITE_ROOK}, {H5, BLACK_ROOK}, {G3, BLACK_ROOK}
+  });
+  moves.clear();
+  moves = generator.generateLegalMoves(pos5);
+  BOOST_TEST(containsMove(moves, Move{A2, H2}));
+  BOOST_TEST(moves.size() == 1);
 }
 
 BOOST_AUTO_TEST_CASE(generate_legal_moves_in_initial)
@@ -588,4 +605,62 @@ BOOST_AUTO_TEST_CASE(generate_legal_moves_in_initial)
   MoveArray pseudo = generator.generatePseudoLegalMoves(pos);
   MoveArray legal = generator.generateLegalMoves(pos);
   BOOST_TEST(isEqualArraysUnordered(pseudo, legal));
+}
+
+BOOST_AUTO_TEST_CASE(make_promotion_move)
+{
+  Position pos({
+    {E7, WHITE_PAWN}
+  });
+  MoveGenerator generator;
+  UndoInfo undo;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  pos.makeMove(moves.get(0), undo);
+  BOOST_TEST(pos.getPiece(E8) == WHITE_QUEEN);
+  BOOST_TEST(moves.size() == 4);
+}
+
+BOOST_AUTO_TEST_CASE(undo_promotion_move)
+{
+  Position pos({
+    {E7, WHITE_PAWN}
+  });
+  MoveGenerator generator;
+  UndoInfo undo;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  pos.makeMove(moves.get(0), undo);
+  pos.undoMove(moves.get(0), undo);
+  BOOST_TEST(pos.getPiece(E7) == WHITE_PAWN);
+  BOOST_TEST(pos.getPiece(E8) == EMPTY);
+  BOOST_TEST(isEqualArraysUnordered(moves, generator.generateLegalMoves(pos)));
+}
+
+BOOST_AUTO_TEST_CASE(make_en_passant_move)
+{
+  Position pos({
+    {E5, WHITE_PAWN}, {D5, BLACK_PAWN}, {E6, BLACK_PAWN}
+  });
+  pos.setEnPassantSquare(D6);
+  MoveGenerator generator;
+  MoveArray moves = generator.generateLegalMoves(pos);
+  UndoInfo undo;
+  pos.makeMove(moves.get(0), undo);
+  BOOST_TEST(pos.getPiece(D5) == 0);
+}
+
+BOOST_AUTO_TEST_CASE(undo_en_passant_move)
+{
+  Position pos({
+    {E5, WHITE_PAWN}, {D7, BLACK_PAWN}, {A2, WHITE_BISHOP}, {G8, BLACK_KING}
+  }, false);
+  MoveGenerator generator;
+  MoveArray black_moves = generator.generateLegalMoves(pos);
+  UndoInfo undo;
+  pos.makeMove(getMove(black_moves, D7, D5), undo);
+  MoveArray white_moves = generator.generateLegalMoves(pos);
+  pos.makeMove(getMove(white_moves, E5, D6), undo);
+  BOOST_TEST(undo.enPassantSquare_ == D6);
+  BOOST_TEST(generator.generateLegalMoves(pos).size() == 4);
+  pos.undoMove(getMove(white_moves, E5, D6), undo);
+  BOOST_TEST(isEqualArraysUnordered(white_moves, generator.generateLegalMoves(pos)));
 }

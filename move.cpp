@@ -99,4 +99,16 @@ namespace chess
     }
     return true;
   }
+
+  Move getMove(const MoveArray& moves, Square from, Square to)
+  {
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      if (moves.get(i).from_ == from && moves.get(i).to_ == to)
+      {
+        return moves.get(i);
+      }
+    }
+    return Move{A1, A1};
+  }
 }

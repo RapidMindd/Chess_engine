@@ -41,6 +41,7 @@ namespace chess
 
   bool containsMove(const MoveArray& moves, Move move);
   bool isEqualArraysUnordered(const MoveArray& moves1, const MoveArray& moves2);
+  Move getMove(const MoveArray& moves, Square from, Square to);
 }
 
 #endif

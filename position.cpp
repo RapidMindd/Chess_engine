@@ -126,10 +126,30 @@ namespace chess
     {
       is_white_piece == 1 ? whiteKingSquare_ = move.to_ : blackKingSquare_ = move.to_;
     }
+
     undo.capturedPiece_ = board_[move.to_];
     board_[move.to_] = board_[move.from_];
     board_[move.from_] = EMPTY;
     whiteToMove_ = !whiteToMove_;
+
+    undo.enPassantSquare_ = enPassantSquare_;
+    enPassantSquare_ = -1;
+
+    if (move.to_ == move.from_ + (16 * is_white_piece)
+    && getPiece(move.to_) == WHITE_PAWN * is_white_piece)
+    {
+      enPassantSquare_ = move.from_ + (8 * is_white_piece);
+    }
+
+    if (move.promotionPiece_ != EMPTY)
+    {
+      board_[move.to_] = move.promotionPiece_;
+    }
+
+    if (move.isEnPassant_)
+    {
+      board_[move.to_ - (8 * is_white_piece)] = EMPTY;
+    }
   }
 
   void Position::undoMove(const Move& move, const UndoInfo& undo) noexcept
@@ -139,9 +159,22 @@ namespace chess
     {
       is_white_piece == 1 ? whiteKingSquare_ = move.from_ : blackKingSquare_ = move.from_;
     }
+
     board_[move.from_] = board_[move.to_];
     board_[move.to_] = undo.capturedPiece_;
     whiteToMove_ = !whiteToMove_;
+
+    enPassantSquare_ = undo.enPassantSquare_;
+
+    if (move.promotionPiece_ != EMPTY)
+    {
+      board_[move.from_] = static_cast< Piece >(WHITE_PAWN * is_white_piece);
+    }
+
+    if (move.isEnPassant_)
+    {
+      board_[move.to_ - (8 * is_white_piece)] = static_cast< Piece >(WHITE_PAWN * -is_white_piece);
+    }
   }
 
   void Position::placePiece(int square, Piece piece)
