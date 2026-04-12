@@ -298,10 +298,6 @@ namespace chess
       }
       const int is_white_piece = piece > 0 ? 1 : -1;
       const int abs_piece = piece * is_white_piece;
-      if (abs_piece <= 0)
-      {
-        continue;
-      }
       switch (abs_piece)
       {
         case WHITE_KNIGHT:

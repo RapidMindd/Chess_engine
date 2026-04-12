@@ -755,6 +755,8 @@ BOOST_AUTO_TEST_CASE(mate)
   }, 0);
   MoveGenerator generator;
   BOOST_TEST(generator.isMate(pos));
+  pos.removePiece(F8);
+  BOOST_TEST(!generator.isMate(pos));
 }
 
 BOOST_AUTO_TEST_CASE(stale_mate)
@@ -764,4 +766,6 @@ BOOST_AUTO_TEST_CASE(stale_mate)
   }, 0);
   MoveGenerator generator;
   BOOST_TEST(generator.isStaleMate(pos));
+  pos.removePiece(G6);
+  BOOST_TEST(!generator.isStaleMate(pos));
 }

@@ -1,13 +1,22 @@
 #include <iostream>
 #include "position.hpp"
-
-// TODO: place pieces on board (for tests)
-// TODO: print MoveArray (for tests)
-// TODO: castling and enPassant logic
+#include "move.hpp"
+#include "move_generator.hpp"
+#include "engine.hpp"
 
 int main()
 {
-  chess::Position pos;
+  using namespace chess;
+  Position pos;
   pos.setInitial();
-  pos.print();
+  UndoInfo undo;
+  MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
+  pos.makeMove(getMove(moves, E2, E4), undo);
+  moves = MoveGenerator{}.generateLegalMoves(pos);
+  pos.makeMove(getMove(moves, D7, D5), undo);
+  auto res = Engine{}.findBestMove(pos, 4);
+  std::cout << res.first << " " << res.second << "\n";
+  pos.makeMove(res.first, undo);
+  res = Engine{}.findBestMove(pos, 4);
+  std::cout << res.first << " " << res.second << "\n";
 }

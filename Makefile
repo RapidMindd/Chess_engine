@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
 
 APP_SRCS = main.cpp
-CORE_SRCS = position.cpp move.cpp move_generator.cpp
+CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp
 TEST_SRCS = test-main.cpp test-position.cpp test-move_generator.cpp
 
 APP_OBJS = $(APP_SRCS:.cpp=.o)
