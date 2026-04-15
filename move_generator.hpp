@@ -24,6 +24,8 @@ namespace chess
 
     static bool isMate(const Position& pos);
     static bool isStaleMate(const Position& pos);
+
+    static bool isMateUnsafe(const Position& pos);
   };
 }
 

@@ -5,9 +5,11 @@
 
 namespace chess
 {
-  int MIN = std::numeric_limits< int >::min() + 1;
-  int MAX = std::numeric_limits< int >::max();
-  int Engine::negamax(Position& pos, int depth)
+  const int MIN = -30000;
+  const int MAX = 30000;
+  const int MATE = 29000;
+
+  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply)
   {
     if (depth == 0)
     {
@@ -16,9 +18,9 @@ namespace chess
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     if (moves.empty())
     {
-      if (MoveGenerator{}.isMate(pos))
+      if (MoveGenerator{}.isMateUnsafe(pos))
       {
-        return MIN;
+        return -MATE + ply;
       }
       return 0;
     }
@@ -28,8 +30,14 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -negamax(pos, depth - 1));
+      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1));
       pos.undoMove(moves.get(i), undo);
+
+      alpha = std::max(alpha, eval);
+      if (alpha >= beta)
+      {
+        break;
+      }
     }
 
     return eval;
@@ -44,7 +52,7 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1);
+      int cur_eval = -negamax(pos, depth - 1, MIN, MAX, 1);
       if (cur_eval > eval)
       {
         eval = cur_eval;
