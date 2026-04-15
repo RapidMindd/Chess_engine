@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <string>
 
 #include "square.hpp"
 #include "piece.hpp"
@@ -51,6 +52,9 @@ namespace chess
     Position();
     Position(std::initializer_list< std::pair< Square, Piece > > pieces,
       bool whiteToMove = true, bool wkc = 0, bool wqc = 0, bool bkc = 0, bool bqc = 0);
+    Position(const char* FEN);
+
+    bool operator==(const Position& another) const noexcept;
 
     void setInitial() noexcept;
     void clear() noexcept;
@@ -73,6 +77,8 @@ namespace chess
     void removePiece(int square);
     void setEnPassantSquare(int square);
   };
+
+  std::ostream& operator<<(std::ostream& out, const Position& pos);
 }
 
 #endif

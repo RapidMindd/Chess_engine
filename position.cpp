@@ -1,5 +1,8 @@
 #include "position.hpp"
 #include "move.hpp"
+#include "piece.hpp"
+
+#include <sstream>
 
 namespace chess
 {
@@ -41,6 +44,87 @@ namespace chess
     whiteQueenCastling_ = wqc;
     blackKingCastling_ = bkc;
     blackQueenCastling_ = bqc;
+  }
+
+  Position::Position(const char* FEN)
+  {
+    clear();
+    std::stringstream stream(FEN);
+    std::string section_board;
+    stream >> section_board;
+    int cur_square = 56;
+    for (size_t i = 0; i < section_board.size(); ++i)
+    {
+      if (isdigit(section_board[i]))
+      {
+        cur_square += section_board[i] - '0';
+      }
+      else if (isalpha(section_board[i]))
+      {
+        board_[cur_square] = charToPiece(section_board[i]);
+        if (section_board[i] == 'K') whiteKingSquare_ = cur_square;
+        if (section_board[i] == 'k') blackKingSquare_ = cur_square;
+        ++cur_square;
+      }
+      else
+      {
+        cur_square = ((cur_square / 8) - 2) * 8;
+      }
+    }
+
+    char color;
+    stream >> color;
+    color == 'w' ? whiteToMove_ = 1 : whiteToMove_ = 0;
+
+    std::string castlings;
+    stream >> castlings;
+    for (size_t i = 0; i < castlings.size(); ++i)
+    {
+      switch (castlings[i])
+      {
+        case 'K': whiteKingCastling_ = 1; break;
+        case 'Q': whiteQueenCastling_ = 1; break;
+        case 'k': blackKingCastling_ = 1; break;
+        case 'q': blackQueenCastling_ = 1; break;
+      }
+    }
+
+    std::string enPassantSquare;
+    stream >> enPassantSquare;
+    if (enPassantSquare != "-")
+    {
+      int col = enPassantSquare[0] - 'a';
+      int row = enPassantSquare[1] - '1';
+      enPassantSquare_ = row * 8 + col;
+    }
+    else
+    {
+      enPassantSquare_ = -1;
+    }
+  }
+
+  bool Position::operator==(const Position& another) const noexcept
+  {
+    for (int i = A1; i <= H8; ++i)
+    {
+      if (board_[i] != another.board_[i])
+      {
+        return false;
+      }
+    }
+    if (whiteToMove_ != another.whiteToMove_) return false;
+
+    if (whiteKingCastling_ != another.whiteKingCastling_) return false;
+    if (whiteQueenCastling_ != another.whiteQueenCastling_) return false;
+    if (blackKingCastling_ != another.blackKingCastling_) return false;
+    if (blackQueenCastling_ != another.blackQueenCastling_) return false;
+
+    if (enPassantSquare_ != another.enPassantSquare_) return false;
+
+    if (whiteKingSquare_ != another.whiteKingSquare_) return false;
+    if (blackKingSquare_ != another.blackKingSquare_) return false;
+
+    return true;
   }
 
   void Position::clear() noexcept
@@ -120,18 +204,24 @@ namespace chess
 
   void Position::print() const
   {
+    std::cout << *this;
+  }
+
+  std::ostream& operator<<(std::ostream& out, const Position& pos)
+  {
     for (int row = 7; row >= 0; --row)
     {
-      std::cout << row + 1;
+      out << row + 1;
       for (int col = 0; col < 8; ++col)
       {
-        std::cout << " " << pieceToChar(board_[8 * row + col]);
+        out << " " << pieceToChar(static_cast< Piece >(pos.getPiece(8 * row + col)));
       }
-      std::cout << "\n";
+      out << "\n";
     }
-    std::cout << "  a b c d e f g h" << "\n";
-    whiteToMove_ ? std::cout << "White " : std::cout << "Black ";
-    std::cout << "to move\n";
+    out << "  a b c d e f g h" << "\n";
+    pos.isWhiteToMove() ? out << "White " : out << "Black ";
+    out << "to move\n";
+    return out;
   }
 
   void Position::makeMove(const Move& move, UndoInfo& undo) noexcept
@@ -309,27 +399,5 @@ namespace chess
     Position new_pos = *this;
     new_pos.whiteToMove_ = !new_pos.whiteToMove_;
     return new_pos;
-  }
-
-  char pieceToChar(Piece piece) noexcept
-  {
-    switch (piece)
-    {
-      case WHITE_PAWN: return 'P';
-      case WHITE_KNIGHT: return 'N';
-      case WHITE_BISHOP: return 'B';
-      case WHITE_ROOK: return 'R';
-      case WHITE_QUEEN: return 'Q';
-      case WHITE_KING: return 'K';
-
-      case BLACK_PAWN: return 'p';
-      case BLACK_KNIGHT: return 'n';
-      case BLACK_BISHOP: return 'b';
-      case BLACK_ROOK: return 'r';
-      case BLACK_QUEEN: return 'q';
-      case BLACK_KING: return 'k';
-
-      default: return '.';
-    }
   }
 }

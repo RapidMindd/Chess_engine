@@ -21,6 +21,9 @@ namespace chess
     BLACK_QUEEN = -5,
     BLACK_KING = -6
   };
+
+  Piece charToPiece(char c) noexcept;
+  char pieceToChar(Piece piece) noexcept;
 }
 
 #endif

@@ -74,3 +74,11 @@ BOOST_AUTO_TEST_CASE(undo_moves)
   BOOST_TEST(pos.getPiece(E4) == EMPTY);
   BOOST_TEST(pos.getPiece(E2) == WHITE_PAWN);
 }
+
+BOOST_AUTO_TEST_CASE(fen_initialization)
+{
+  Position pos = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  Position init_pos;
+  init_pos.setInitial();
+  BOOST_TEST(pos == init_pos);
+}

@@ -52,7 +52,7 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1, MIN, MAX, 1);
+      int cur_eval = -negamax(pos, depth - 1, MIN, MAX, 0);
       if (cur_eval > eval)
       {
         eval = cur_eval;
