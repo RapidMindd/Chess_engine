@@ -20,7 +20,7 @@ namespace chess
     static void generatePawnMoves(const Position& pos, Square square, MoveArray& moves);
     static void generateCastlingMoves(const Position& pos, Square square, MoveArray& moves);
 
-    static bool isSquareAttacked(const Position& pos, Square square);
+    static bool isKingAttacked(const Position& pos, Square square);
 
     static bool isMate(const Position& pos);
     static bool isStaleMate(const Position& pos);

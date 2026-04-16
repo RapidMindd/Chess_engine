@@ -37,8 +37,8 @@ namespace chess
     if (rights.king_ && pos.getPiece(square + 1) == EMPTY && pos.getPiece(square + 2) == EMPTY)
     {
       half_king_move_pos.makeMove(Move{square, static_cast< Square >(square + 1)}, undo);
-      if (!isSquareAttacked(toggled_pos, static_cast< Square >(square))
-      && !isSquareAttacked(half_king_move_pos, static_cast< Square >(square + 1)))
+      if (!isKingAttacked(toggled_pos, static_cast< Square >(square))
+      && !isKingAttacked(half_king_move_pos, static_cast< Square >(square + 1)))
       {
         moves.push({square, static_cast< Square >(square + 2), EMPTY, 0, 1});
       }
@@ -48,8 +48,8 @@ namespace chess
     {
       half_king_move_pos.undoMove(Move{square, static_cast< Square >(square + 1)}, undo);
       half_king_move_pos.makeMove(Move{square, static_cast< Square >(square - 1)}, undo);
-      if (!isSquareAttacked(toggled_pos, static_cast< Square >(square))
-      && !isSquareAttacked(half_king_move_pos, static_cast< Square >(square - 1)))
+      if (!isKingAttacked(toggled_pos, static_cast< Square >(square))
+      && !isKingAttacked(half_king_move_pos, static_cast< Square >(square - 1)))
       {
         moves.push({square, static_cast< Square >(square - 2), EMPTY, 0, 1});
       }
@@ -271,28 +271,26 @@ namespace chess
     }
   }
 
-  bool MoveGenerator::isSquareAttacked(const Position& pos, Square square)
+  bool MoveGenerator::isKingAttacked(const Position& pos, Square square)
   {
+    const int row = square / 8;
+    const int col = square % 8;
     const int is_white_move = pos.isWhiteToMove() ? 1 : -1;
     MoveArray moves;
     int i = 0;
-
-    generateQueenMoves(pos, square, moves);
-    for (; i < moves.size(); ++i)
-    {
-      if (pos.getPiece(moves.get(i).to_) == WHITE_QUEEN * is_white_move) return true;
-    }
 
     generateRookMoves(pos, square, moves);
     for (; i < moves.size(); ++i)
     {
       if (pos.getPiece(moves.get(i).to_) == WHITE_ROOK * is_white_move) return true;
+      if (pos.getPiece(moves.get(i).to_) == WHITE_QUEEN * is_white_move) return true;
     }
 
     generateBishopMoves(pos, square, moves);
     for (; i < moves.size(); ++i)
     {
       if (pos.getPiece(moves.get(i).to_) == WHITE_BISHOP * is_white_move) return true;
+      if (pos.getPiece(moves.get(i).to_) == WHITE_QUEEN * is_white_move) return true;
     }
 
     generateKnightMoves(pos, square, moves);
@@ -307,8 +305,16 @@ namespace chess
       if (pos.getPiece(moves.get(i).to_) == WHITE_KING * is_white_move) return true;
     }
 
-    if (pos.getPiece(square - (9 * is_white_move)) == WHITE_PAWN * is_white_move) return true;
-    if (pos.getPiece(square - (7 * is_white_move)) == WHITE_PAWN * is_white_move) return true;
+    if (is_white_move == 1)
+    {
+      if (row > 0 && col > 0 && pos.getPiece(square - 9) == WHITE_PAWN) return true;
+      if (row > 0 && col < 7 && pos.getPiece(square - 7) == WHITE_PAWN) return true;
+    }
+    else
+    {
+      if (row < 7 && col > 0 && pos.getPiece(square + 7) == BLACK_PAWN) return true;
+      if (row < 7 && col < 7 && pos.getPiece(square + 9) == BLACK_PAWN) return true;
+    }
 
     return false;
   }
@@ -365,7 +371,7 @@ namespace chess
     {
       Move move = moves.get(i);
       new_pos.makeMove(move, undo);
-      if (!isSquareAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
+      if (!isKingAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
       {
         legal_moves.push(move);
       }
@@ -388,7 +394,7 @@ namespace chess
   {
     Position toggled_pos = pos.getToggledSideToMovePosition();
     if (generateLegalMoves(pos).empty()
-      && !isSquareAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
+      && !isKingAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
     {
       return true;
     }
@@ -398,7 +404,7 @@ namespace chess
   bool MoveGenerator::isMateUnsafe(const Position& pos)
   {
     Position toggled_pos = pos.getToggledSideToMovePosition();
-    if (isSquareAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
+    if (isKingAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
     {
       return true;
     }
