@@ -273,15 +273,43 @@ namespace chess
 
   bool MoveGenerator::isSquareAttacked(const Position& pos, Square square)
   {
-    MoveArray moves = generatePseudoLegalMoves(pos, 0);
-    for (int i = 0; i < moves.size(); ++i)
+    const int is_white_move = pos.isWhiteToMove() ? 1 : -1;
+    MoveArray moves;
+    int i = 0;
+
+    generateQueenMoves(pos, square, moves);
+    for (; i < moves.size(); ++i)
     {
-      if (moves.get(i).to_ == square)
-      {
-        return true;
-        break;
-      }
+      if (pos.getPiece(moves.get(i).to_) == WHITE_QUEEN * is_white_move) return true;
     }
+
+    generateRookMoves(pos, square, moves);
+    for (; i < moves.size(); ++i)
+    {
+      if (pos.getPiece(moves.get(i).to_) == WHITE_ROOK * is_white_move) return true;
+    }
+
+    generateBishopMoves(pos, square, moves);
+    for (; i < moves.size(); ++i)
+    {
+      if (pos.getPiece(moves.get(i).to_) == WHITE_BISHOP * is_white_move) return true;
+    }
+
+    generateKnightMoves(pos, square, moves);
+    for (; i < moves.size(); ++i)
+    {
+      if (pos.getPiece(moves.get(i).to_) == WHITE_KNIGHT * is_white_move) return true;
+    }
+
+    generateKingMoves(pos, square, moves);
+    for (; i < moves.size(); ++i)
+    {
+      if (pos.getPiece(moves.get(i).to_) == WHITE_KING * is_white_move) return true;
+    }
+
+    if (pos.getPiece(square - (9 * is_white_move)) == WHITE_PAWN * is_white_move) return true;
+    if (pos.getPiece(square - (7 * is_white_move)) == WHITE_PAWN * is_white_move) return true;
+
     return false;
   }
 

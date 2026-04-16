@@ -48,15 +48,17 @@ namespace chess
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
     int eval = MIN;
+    int alpha = MIN;
     UndoInfo undo;
     for (int i = 0; i < moves.size(); ++i)
     {
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1, MIN, MAX, 0);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0);
       if (cur_eval > eval)
       {
         eval = cur_eval;
         move = moves.get(i);
+        alpha = eval;
       }
       pos.undoMove(moves.get(i), undo);
     }
