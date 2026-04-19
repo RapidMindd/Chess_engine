@@ -11,6 +11,10 @@ namespace chess
   {
     std::pair< Move, int > findBestMove(Position& pos, int depth);
     int negamax(Position& pos, int depth, int alpha, int beta, int ply);
+
+    void rateMoves(MoveArray& moves, const Position& pos);
+    void rateMove(Move& move, const Position& pos);
+    void MvBestMoveToBeg(MoveArray& moves, int ind);
   };
 };
 

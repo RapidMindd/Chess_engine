@@ -4,8 +4,6 @@
 #include <iosfwd>
 #include "position.hpp"
 
-// #include "/home/yaroslav/programming/aads_2_semester/vector/class_17_03/vector.hpp"
-
 namespace chess
 {
   struct Move
@@ -15,10 +13,13 @@ namespace chess
     Piece promotionPiece_ = EMPTY;
     bool isEnPassant_ = 0;
     bool isCastling_ = 0;
+    int score_ = 0;
   };
 
   struct MoveArray
   {
+    friend struct Engine;
+
     MoveArray();
     void push(const Move& move) noexcept;
     const Move& get(int index) const noexcept;
