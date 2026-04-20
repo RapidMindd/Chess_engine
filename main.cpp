@@ -19,4 +19,7 @@ int main()
   pos.makeMove(res.first, undo);
   res = Engine{}.findBestMove(pos, 6);
   std::cout << res.first << " " << res.second << "\n";
+  pos.makeMove(res.first, undo);
+  res = Engine{}.findBestMove(pos, 6);
+  std::cout << res.first << " " << res.second << "\n";
 }

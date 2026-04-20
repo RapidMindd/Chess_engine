@@ -410,4 +410,19 @@ namespace chess
     }
     return false;
   }
+
+  MoveArray MoveGenerator::generateActiveMoves(const Position& pos)
+  {
+    MoveArray legal_moves = generateLegalMoves(pos);
+    MoveArray active_moves;
+    for (int i = 0; i < legal_moves.size(); ++i)
+    {
+      Move curr = legal_moves.get(i);
+      if (pos.getPiece(curr.to_) != EMPTY)
+      {
+        active_moves.push(curr);
+      }
+    }
+    return active_moves;
+  }
 }

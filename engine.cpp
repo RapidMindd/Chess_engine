@@ -12,7 +12,7 @@ namespace chess
   {
     if (depth == 0)
     {
-      return Evaluator{}.relative_eval(pos);
+      return quiescence(pos, alpha, beta);
     }
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     if (moves.empty())
@@ -43,6 +43,36 @@ namespace chess
     }
 
     return eval;
+  }
+
+  int Engine::quiescence(Position& pos, int alpha, int beta)
+  {
+    int heuristic_eval = Evaluator{}.relative_eval(pos);
+
+    alpha = std::max(alpha, heuristic_eval);
+    if (heuristic_eval >= beta)
+    {
+      return beta;
+    }
+
+    MoveArray moves = MoveGenerator{}.generateActiveMoves(pos);
+    UndoInfo undo;
+    rateMoves(moves, pos);
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      MvBestMoveToBeg(moves, i);
+      pos.makeMove(moves.get(i), undo);
+      int eval = -quiescence(pos, -beta, -alpha);
+      pos.undoMove(moves.get(i), undo);
+
+      alpha = std::max(alpha, eval);
+      if (eval >= beta)
+      {
+        return beta;
+      }
+    }
+
+    return alpha;
   }
 
   std::pair< Move, int > Engine::findBestMove(Position& pos, int depth)
