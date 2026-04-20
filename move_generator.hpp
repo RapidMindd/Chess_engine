@@ -8,10 +8,9 @@ namespace chess
 {
   struct MoveGenerator
   {
-    static MoveArray generatePseudoLegalMoves(const Position& pos, bool castling = 1);
     static MoveArray generateLegalMoves(const Position& pos);
+    static MoveArray generatePseudoLegalMoves(const Position& pos, bool castling = 1);
 
-    // методы генерируют псевдолегальные ходы
     static void generateKingMoves(const Position& pos, Square square, MoveArray& moves);
     static void generateQueenMoves(const Position& pos, Square square, MoveArray& moves);
     static void generateKnightMoves(const Position& pos, Square square, MoveArray& moves);
@@ -21,11 +20,19 @@ namespace chess
     static void generateCastlingMoves(const Position& pos, Square square, MoveArray& moves);
 
     static MoveArray generateActiveMoves(const Position& pos);
+    static void generatePseudoLegalActiveMoves(const Position& pos, MoveArray& moves);
+
+    static void generateQueenCaptures(const Position& pos, Square square, MoveArray& moves);
+    static void generateBishopCaptures(const Position& pos, Square square, MoveArray& moves);
+    static void generateRookCaptures(const Position& pos, Square square, MoveArray& moves);
+    static void generateKnightCaptures(const Position& pos, Square square, MoveArray& moves);
+    static void generateKingCaptures(const Position& pos, Square square, MoveArray& moves);
+    static void generatePawnCapturesAndPromotions(const Position& pos, Square square, MoveArray& moves);
 
     static bool isKingAttacked(const Position& pos, Square square);
 
     static bool isMate(const Position& pos);
-    static bool isMateUnsafe(const Position& pos);
+    static bool isCheck(const Position& pos);
     static bool isStaleMate(const Position& pos);
   };
 }

@@ -334,6 +334,8 @@ namespace chess
       const int abs_piece = piece * is_white_piece;
       switch (abs_piece)
       {
+        case EMPTY:
+          break;
         case WHITE_KNIGHT:
           generateKnightMoves(pos, static_cast< Square >(i), moves);
           break;
@@ -383,7 +385,7 @@ namespace chess
   bool MoveGenerator::isMate(const Position& pos)
   {
     if (generateLegalMoves(pos).empty()
-      && isMateUnsafe(pos))
+      && isCheck(pos))
     {
       return true;
     }
@@ -401,7 +403,7 @@ namespace chess
     return false;
   }
 
-  bool MoveGenerator::isMateUnsafe(const Position& pos)
+  bool MoveGenerator::isCheck(const Position& pos)
   {
     Position toggled_pos = pos.getToggledSideToMovePosition();
     if (isKingAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
@@ -411,18 +413,289 @@ namespace chess
     return false;
   }
 
-  MoveArray MoveGenerator::generateActiveMoves(const Position& pos)
+  void MoveGenerator::generateRookCaptures(const Position& pos, Square square, MoveArray& moves)
   {
-    MoveArray legal_moves = generateLegalMoves(pos);
-    MoveArray active_moves;
-    for (int i = 0; i < legal_moves.size(); ++i)
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+
+    // вверх
+    int dest_square = square + 8;
+    while (dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
     {
-      Move curr = legal_moves.get(i);
-      if (pos.getPiece(curr.to_) != EMPTY)
+      if (pos.getPiece(dest_square) != EMPTY)
       {
-        active_moves.push(curr);
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      dest_square += 8;
+    }
+
+    // вниз
+    dest_square = square - 8;
+    while (dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      dest_square -= 8;
+    }
+
+    // вправо
+    int col = (square % 8) + 1;
+    dest_square = square + 1;
+    while (8 - col > 0 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      ++dest_square;
+      ++col;
+    }
+
+    // влево
+    col = (square % 8) - 1;
+    dest_square = square - 1;
+    while (col >= 0 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      --dest_square;
+      --col;
+    }
+  }
+
+  void MoveGenerator::generateBishopCaptures(const Position& pos, Square square, MoveArray& moves)
+  {
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+
+    // вверх вправо
+    int col = (square % 8) + 1;
+    int dest_square = square + 9;
+    while (8 - col > 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      dest_square += 9;
+      ++col;
+    }
+
+    // вниз вправо
+    col = (square % 8) + 1;
+    dest_square = square - 7;
+    while (8 - col > 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      dest_square -= 7;
+      ++col;
+    }
+
+    // вниз влево
+    col = (square % 8) - 1;
+    dest_square = square - 9;
+    while (col >= 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      dest_square -= 9;
+      --col;
+    }
+
+    // вверх влево
+    col = (square % 8) - 1;
+    dest_square = square + 7;
+    while (col >= 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        moves.push({square, static_cast< Square >(dest_square)});
+        break;
+      }
+      dest_square += 7;
+      --col;
+    }
+  }
+
+  void MoveGenerator::generateKnightCaptures(const Position& pos, Square square, MoveArray& moves)
+  {
+    constexpr int possible_moves = 8;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int row = square / 8;
+    const int col = square % 8;
+
+    // начиная с клетки сверху справа, по часовой
+    int row_offset[possible_moves] = {2, 1, -1, -2, -2, -1, 1, 2};
+    int col_offset[possible_moves] = {1, 2, 2, 1, -1, -2, -2, -1};
+
+    for (int i = 0; i < possible_moves; ++i)
+    {
+      int new_row = row + row_offset[i];
+      int new_col = col + col_offset[i];
+      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+      {
+        int dest_square = new_row * 8 + new_col;
+        if (pos.getPiece(dest_square) * is_white_piece < 0)
+        {
+          moves.push({square, static_cast< Square >(dest_square)});
+        }
       }
     }
-    return active_moves;
+  }
+
+  void MoveGenerator::generateKingCaptures(const Position& pos, Square square, MoveArray& moves)
+  {
+    constexpr int possible_moves = 8;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int row = square / 8;
+    const int col = square % 8;
+
+    // начиная с клетки сверху, по часовой
+    int row_offset[possible_moves] = {1, 1, 0, -1, -1, -1, 0, 1};
+    int col_offset[possible_moves] = {0, 1, 1, 1, 0, -1, -1, -1};
+
+    for (int i = 0; i < possible_moves; ++i)
+    {
+      int new_row = row + row_offset[i];
+      int new_col = col + col_offset[i];
+      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+      {
+        int dest_square = new_row * 8 + new_col;
+        if (pos.getPiece(dest_square) * is_white_piece < 0)
+        {
+          moves.push({square, static_cast< Square >(dest_square)});
+        }
+      }
+    }
+  }
+
+  void MoveGenerator::generatePawnCapturesAndPromotions(const Position& pos, Square square, MoveArray& moves)
+  {
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int displacement = is_white_piece == 1 ? 8 : -8;
+
+    const int promotion_row = is_white_piece == 1 ? 6 : 1;
+    const int enPassant_row = is_white_piece == 1 ? 4 : 3;
+
+    const int row = square / 8;
+    const int col = square % 8;
+
+    auto promote = [&moves, square, is_white_piece](int displacement){
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_QUEEN * is_white_piece)});
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_KNIGHT * is_white_piece)});
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_ROOK * is_white_piece)});
+        moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_BISHOP * is_white_piece)});
+    };
+
+    if (pos.getPiece(square + displacement) == EMPTY && row == promotion_row)
+    {
+      promote(displacement);
+    }
+
+    // взятия
+    const int take_displacements[2] = {9 * is_white_piece, 7 * is_white_piece};
+    const int corner_col_for_take[2] = {is_white_piece == 1 ? 7 : 0, is_white_piece == 1 ? 0 : 7};
+
+    for (size_t i = 0; i < 2; ++i)
+    {
+      if (col != corner_col_for_take[i])
+      {
+        const int take_piece = pos.getPiece(square + take_displacements[i]);
+        if (take_piece * is_white_piece < 0)
+        {
+          if (row == promotion_row)
+          {
+            promote(take_displacements[i]);
+          }
+          else
+          {
+            moves.push({square, static_cast< Square >(square + take_displacements[i])});
+          }
+        }
+        // взятие на проходе
+        else if (row == enPassant_row && pos.getEnPassantSquare() == square + take_displacements[i])
+        {
+          moves.push({square, static_cast< Square >(square + take_displacements[i]), EMPTY, true});
+        }
+      }
+    }
+  }
+
+  void MoveGenerator::generateQueenCaptures(const Position& pos, Square square, MoveArray& moves)
+  {
+    generateRookCaptures(pos, square, moves);
+    generateBishopCaptures(pos, square, moves);
+  }
+
+  void MoveGenerator::generatePseudoLegalActiveMoves(const Position& pos, MoveArray& moves)
+  {
+    const int side_to_move = pos.isWhiteToMove() ? 1 : -1;
+    for (int i = A1; i <= H8; ++i)
+    {
+      const int piece = pos.getPiece(i);
+      if (piece * side_to_move <= 0)
+      {
+        continue;
+      }
+      const int is_white_piece = piece > 0 ? 1 : -1;
+      const int abs_piece = piece * is_white_piece;
+      switch (abs_piece)
+      {
+        case EMPTY:
+          break;
+        case WHITE_KNIGHT:
+          generateKnightCaptures(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_BISHOP:
+          generateBishopCaptures(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_QUEEN:
+          generateQueenCaptures(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_PAWN:
+          generatePawnCapturesAndPromotions(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_ROOK:
+          generateRookCaptures(pos, static_cast< Square >(i), moves);
+          break;
+        case WHITE_KING:
+          generateKingCaptures(pos, static_cast< Square >(i), moves);
+          break;
+      }
+    }
+  }
+
+  MoveArray MoveGenerator::generateActiveMoves(const Position& pos)
+  {
+    MoveArray active_moves;
+    MoveArray legal_moves;
+    Position new_pos = pos;
+    UndoInfo undo;
+    generatePseudoLegalActiveMoves(pos, active_moves);
+
+    for (int i = 0; i < active_moves.size(); ++i)
+    {
+      Move curr = active_moves.get(i);
+      new_pos.makeMove(curr, undo);
+      if (!isKingAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
+      {
+        legal_moves.push(curr);
+      }
+    }
+    return legal_moves;
   }
 }

@@ -14,10 +14,11 @@ namespace chess
     {
       return quiescence(pos, alpha, beta);
     }
+
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     if (moves.empty())
     {
-      if (MoveGenerator{}.isMateUnsafe(pos))
+      if (MoveGenerator{}.isCheck(pos))
       {
         return -MATE + ply;
       }
@@ -47,26 +48,37 @@ namespace chess
 
   int Engine::quiescence(Position& pos, int alpha, int beta)
   {
-    int heuristic_eval = Evaluator{}.relative_eval(pos);
+    UndoInfo undo;
+    MoveArray moves;
 
-    alpha = std::max(alpha, heuristic_eval);
-    if (heuristic_eval >= beta)
+    if (MoveGenerator{}.isCheck(pos))
     {
-      return beta;
+      moves = MoveGenerator{}.generateLegalMoves(pos);
     }
 
-    MoveArray moves = MoveGenerator{}.generateActiveMoves(pos);
-    UndoInfo undo;
+    else
+    {
+      int stand_pat = Evaluator{}.relative_eval(pos);
+      alpha = std::max(alpha, stand_pat);
+      if (stand_pat >= beta)
+      {
+        return beta;
+      }
+
+      moves = MoveGenerator{}.generateActiveMoves(pos);
+    }
+
     rateMoves(moves, pos);
+    int eval = MIN;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
       pos.makeMove(moves.get(i), undo);
-      int eval = -quiescence(pos, -beta, -alpha);
+      eval = std::max(eval, -quiescence(pos, -beta, -alpha));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
-      if (eval >= beta)
+      if (alpha >= beta)
       {
         return beta;
       }
@@ -116,6 +128,10 @@ namespace chess
     if (to != EMPTY)
     {
       score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
+    }
+    if (move.promotionPiece_ != EMPTY)
+    {
+      score += 12000 + std::abs(move.promotionPiece_);
     }
 
     move.score_ = score;
