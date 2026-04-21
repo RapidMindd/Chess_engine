@@ -1,5 +1,6 @@
 CXX = g++
 CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
+OPTIMIZE = -O2
 
 APP_SRCS = main.cpp
 CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp piece.cpp
@@ -12,7 +13,7 @@ TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 DEPS = $(APP_OBJS:.o=.d) $(CORE_OBJS:.o=.d) $(TEST_OBJS:.o=.d)
 
 main: $(APP_OBJS) $(CORE_OBJS)
-	$(CXX) $^ -o $@
+	$(CXX) $(OPTIMIZE) $^ -o $@
 	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(DEPS)
 
 run: main
@@ -22,11 +23,11 @@ test: tests
 	./tests
 
 tests: $(TEST_OBJS) $(CORE_OBJS)
-	$(CXX) $^ -o $@
+	$(CXX) $(OPTIMIZE) $^ -o $@
 	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(DEPS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(OPTIMIZE) $(CXXFLAGS) -c $< -o $@
 
 -include $(DEPS)
 

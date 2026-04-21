@@ -12,7 +12,8 @@ namespace chess
   {
     if (depth == 0)
     {
-      return quiescence(pos, alpha, beta);
+      // return Evaluator{}.relative_eval(pos);
+      return quiescence(pos, alpha, beta, ply);
     }
 
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -46,7 +47,7 @@ namespace chess
     return eval;
   }
 
-  int Engine::quiescence(Position& pos, int alpha, int beta)
+  int Engine::quiescence(Position& pos, int alpha, int beta, int ply)
   {
     UndoInfo undo;
     MoveArray moves;
@@ -54,6 +55,10 @@ namespace chess
     if (MoveGenerator{}.isCheck(pos))
     {
       moves = MoveGenerator{}.generateLegalMoves(pos);
+      if (moves.empty())
+      {
+        return -MATE + ply;
+      }
     }
 
     else
@@ -74,7 +79,7 @@ namespace chess
     {
       MvBestMoveToBeg(moves, i);
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -quiescence(pos, -beta, -alpha));
+      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
