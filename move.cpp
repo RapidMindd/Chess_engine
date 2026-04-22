@@ -71,6 +71,31 @@ namespace chess
     return out << col << row;
   }
 
+  std::istream& operator>>(std::istream& in, Move& move)
+  {
+    char char_from;
+    int row_from;
+    in >> char_from >> row_from;
+    char separator;
+    in >> separator;
+    char char_to;
+    int row_to;
+    in >> char_to >> row_to;
+
+    if (!in) return in;
+
+    int col_from = char_from - 'a';
+    int col_to = char_to - 'a';
+    if (col_from > 7 || col_to > 7 || row_from > 8 || row_to > 8 || separator != '-')
+    {
+      in.setstate(std::ios::failbit);
+      return in;
+    }
+    move = {static_cast< Square >((row_from - 1) * 8 + col_from),
+      static_cast< Square >((row_to - 1) * 8 + col_to)};
+    return in;
+  }
+
   bool containsMove(const MoveArray& moves, Move move)
   {
     for (int i = 0; i < moves.size(); ++i)
@@ -109,6 +134,11 @@ namespace chess
         return moves.get(i);
       }
     }
-    return Move{A1, A1};
+    throw std::logic_error("Invalid move");
+  }
+
+  Move getMove(const MoveArray& moves, Move move)
+  {
+   return getMove(moves, move.from_, move.to_);
   }
 }

@@ -7,19 +7,33 @@
 int main()
 {
   using namespace chess;
+
+  UndoInfo undo;
   Position pos;
   pos.setInitial();
-  UndoInfo undo;
-  MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
-  pos.makeMove(getMove(moves, E2, E4), undo);
-  moves = MoveGenerator{}.generateLegalMoves(pos);
-  pos.makeMove(getMove(moves, D7, D5), undo);
-  auto res = Engine{}.findBestMove(pos, 8);
-  std::cout << res.first << " " << res.second << "\n";
-  // pos.makeMove(res.first, undo);
-  // res = Engine{}.findBestMove(pos, 6);
-  // std::cout << res.first << " " << res.second << "\n";
-  // pos.makeMove(res.first, undo);
-  // res = Engine{}.findBestMove(pos, 6);
-  // std::cout << res.first << " " << res.second << "\n";
+  MoveArray valid_moves;
+  Move curr;
+  while (std::cin >> curr)
+  {
+    if (std::cin.fail())
+    {
+      std::cout << "Invalid notation\n";
+      std::cin.clear();
+      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      continue;
+    }
+    valid_moves = MoveGenerator{}.generateLegalMoves(pos);
+    try
+    {
+      pos.makeMove(getMove(valid_moves, curr), undo);
+    }
+    catch(const std::exception& e)
+    {
+      std::cout << e.what() << "\n";
+      continue;
+    }
+    auto ans =  Engine{}.findBestMove(pos, 6);
+    pos.makeMove(ans.first, undo);
+    pos.print();
+  }
 }

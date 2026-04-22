@@ -1,20 +1,22 @@
 CXX = g++
 CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
-OPTIMIZE = -O2
+OPTIMIZE = -O3 -march=native -flto
 
 APP_SRCS = main.cpp
 CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp piece.cpp
 TEST_SRCS = test-main.cpp test-position.cpp test-move_generator.cpp test-engine.cpp
+BENCH_SRCS = speed-bench.cpp
 
 APP_OBJS = $(APP_SRCS:.cpp=.o)
 CORE_OBJS = $(CORE_SRCS:.cpp=.o)
 TEST_OBJS = $(TEST_SRCS:.cpp=.o)
+BENCH_OBJS = $(BENCH_SRCS:.cpp=.o)
 
-DEPS = $(APP_OBJS:.o=.d) $(CORE_OBJS:.o=.d) $(TEST_OBJS:.o=.d)
+DEPS = $(APP_OBJS:.o=.d) $(CORE_OBJS:.o=.d) $(TEST_OBJS:.o=.d) $(BENCH_OBJS:.o=.d)
 
 main: $(APP_OBJS) $(CORE_OBJS)
 	$(CXX) $(OPTIMIZE) $^ -o $@
-	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(DEPS)
+	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(DEPS)
 
 run: main
 	./main
@@ -26,10 +28,17 @@ tests: $(TEST_OBJS) $(CORE_OBJS)
 	$(CXX) $(OPTIMIZE) $^ -o $@
 	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(DEPS)
 
+benchs: $(BENCH_OBJS) $(CORE_OBJS)
+	$(CXX) $(OPTIMIZE) $^ -o $@
+	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(DEPS)
+
+bench: benchs
+	./benchs
+
 %.o: %.cpp
 	$(CXX) $(OPTIMIZE) $(CXXFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
 clean:
-	@rm -f main tests $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(DEPS)
+	@rm -f main tests benchs $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(DEPS) *.gcda
