@@ -13,15 +13,20 @@ int main()
   pos.setInitial();
   MoveArray valid_moves;
   Move curr;
-  while (std::cin >> curr)
+  while (true)
   {
-    if (std::cin.fail())
+    if (!(std::cin >> curr))
     {
+      if (std::cin.eof())
+      {
+        return 0;
+      }
       std::cout << "Invalid notation\n";
       std::cin.clear();
       std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
       continue;
     }
+
     valid_moves = MoveGenerator{}.generateLegalMoves(pos);
     try
     {

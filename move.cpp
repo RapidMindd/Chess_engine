@@ -134,11 +134,16 @@ namespace chess
         return moves.get(i);
       }
     }
-    throw std::logic_error("Invalid move");
+    return Move{A1, A1};
   }
 
   Move getMove(const MoveArray& moves, Move move)
   {
-   return getMove(moves, move.from_, move.to_);
+    Move returned = getMove(moves, move.from_, move.to_);
+    if (returned != Move{A1, A1})
+    {
+      return returned;
+    }
+    throw std::logic_error("Illegal move");
   }
 }
