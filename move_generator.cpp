@@ -30,15 +30,16 @@ namespace chess
 
   void MoveGenerator::generateCastlingMoves(const Position& pos, Square square, MoveArray& moves)
   {
-    Position toggled_pos = pos.getToggledSideToMovePosition();
     Castling rights = pos.getCastling();
     UndoInfo undo;
     Position half_king_move_pos = pos;
+    bool king_castle = false;
     if (rights.king_ && pos.getPiece(square + 1) == EMPTY && pos.getPiece(square + 2) == EMPTY)
     {
       half_king_move_pos.makeMove(Move{square, static_cast< Square >(square + 1)}, undo);
-      if (!isKingAttacked(toggled_pos, static_cast< Square >(square))
-      && !isKingAttacked(half_king_move_pos, static_cast< Square >(square + 1)))
+      king_castle = true;
+      if (!isSquareAttackedQuick(pos, static_cast< Square >(square), !pos.isWhiteToMove())
+      && !isSquareAttackedQuick(half_king_move_pos, static_cast< Square >(square + 1), !pos.isWhiteToMove()))
       {
         moves.push({square, static_cast< Square >(square + 2), EMPTY, 0, 1});
       }
@@ -46,10 +47,13 @@ namespace chess
     if (rights.queen_ && pos.getPiece(square - 1) == EMPTY
     && pos.getPiece(square - 2) == EMPTY && pos.getPiece(square - 3) == EMPTY)
     {
-      half_king_move_pos.undoMove(Move{square, static_cast< Square >(square + 1)}, undo);
+      if (king_castle)
+      {
+        half_king_move_pos.undoMove(Move{square, static_cast< Square >(square + 1)}, undo);
+      }
       half_king_move_pos.makeMove(Move{square, static_cast< Square >(square - 1)}, undo);
-      if (!isKingAttacked(toggled_pos, static_cast< Square >(square))
-      && !isKingAttacked(half_king_move_pos, static_cast< Square >(square - 1)))
+      if (!isSquareAttackedQuick(pos, static_cast< Square >(square), !pos.isWhiteToMove())
+      && !isSquareAttackedQuick(half_king_move_pos, static_cast< Square >(square - 1), !pos.isWhiteToMove()))
       {
         moves.push({square, static_cast< Square >(square - 2), EMPTY, 0, 1});
       }
@@ -271,7 +275,7 @@ namespace chess
     }
   }
 
-  bool MoveGenerator::isKingAttacked(const Position& pos, Square square)
+  bool MoveGenerator::isSquareAttacked(const Position& pos, Square square)
   {
     const int row = square / 8;
     const int col = square % 8;
@@ -314,6 +318,179 @@ namespace chess
     {
       if (row < 7 && col > 0 && pos.getPiece(square + 7) == BLACK_PAWN) return true;
       if (row < 7 && col < 7 && pos.getPiece(square + 9) == BLACK_PAWN) return true;
+    }
+
+    return false;
+  }
+
+  bool MoveGenerator::isSquareAttackedQuick(const Position& pos, Square square, bool byWhite)
+  {
+    const int row = square / 8;
+    const int col = square % 8;
+    const int side = byWhite ? 1 : -1;
+
+    if (byWhite)
+    {
+      if (row > 0 && col > 0 && pos.getPiece(square - 9) == WHITE_PAWN) return true;
+      if (row > 0 && col < 7 && pos.getPiece(square - 7) == WHITE_PAWN) return true;
+    }
+    else
+    {
+      if (row < 7 && col > 0 && pos.getPiece(square + 7) == BLACK_PAWN) return true;
+      if (row < 7 && col < 7 && pos.getPiece(square + 9) == BLACK_PAWN) return true;
+    }
+
+    int row_offset[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+    int col_offset[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+
+    for (int i = 0; i < 8; ++i)
+    {
+      int new_row = row + row_offset[i];
+      int new_col = col + col_offset[i];
+      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+      {
+        int dest_square = new_row * 8 + new_col;
+        if (pos.getPiece(dest_square) == WHITE_KING * side) return true;
+      }
+    }
+
+    int row_offset2[8] = {2, 1, -1, -2, -2, -1, 1, 2};
+    int col_offset2[8] = {1, 2, 2, 1, -1, -2, -2, -1};
+
+    for (int i = 0; i < 8; ++i)
+    {
+      int new_row2 = row + row_offset2[i];
+      int new_col2 = col + col_offset2[i];
+      if (new_row2 >= 0 && new_row2 < 8 && new_col2 >= 0 && new_col2 < 8)
+      {
+        int dest_square = new_row2 * 8 + new_col2;
+        if (pos.getPiece(dest_square) == WHITE_KNIGHT * side) return true;
+      }
+    }
+
+    // вверх
+    int dest_square = square + 8;
+    while (dest_square <= H8 && pos.getPiece(dest_square) == EMPTY)
+    {
+      dest_square += 8;
+    }
+    if (dest_square <= H8)
+    {
+      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+    // вниз
+    dest_square = square - 8;
+    while (dest_square >= A1 && pos.getPiece(dest_square) == EMPTY)
+    {
+      dest_square -= 8;
+    }
+    if (dest_square >= A1)
+    {
+      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+
+    // вправо
+    int col_temp = (square % 8) + 1;
+    dest_square = square + 1;
+    while (8 - col_temp > 0 && pos.getPiece(dest_square) == EMPTY)
+    {
+      ++dest_square;
+      ++col_temp;
+    }
+    if (8 - col_temp > 0)
+    {
+      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+    // влево
+    col_temp = (square % 8) - 1;
+    dest_square = square - 1;
+    while (col_temp >= 0 && pos.getPiece(dest_square) == EMPTY)
+    {
+      --dest_square;
+      --col_temp;
+    }
+    if (col_temp >= 0)
+    {
+      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+    // вверх вправо
+    col_temp = (square % 8) + 1;
+    dest_square = square + 9;
+    while (8 - col_temp > 0 && dest_square <= H8 && pos.getPiece(dest_square) == EMPTY)
+    {
+      dest_square += 9;
+      ++col_temp;
+    }
+    if (8 - col_temp > 0)
+    {
+      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+    // вниз вправо
+    col_temp = (square % 8) + 1;
+    dest_square = square - 7;
+    while (8 - col_temp > 0 && dest_square >= A1 && pos.getPiece(dest_square) == EMPTY)
+    {
+      dest_square -= 7;
+      ++col_temp;
+    }
+    if (8 - col_temp > 0)
+    {
+      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+    // вниз влево
+    col_temp = (square % 8) - 1;
+    dest_square = square - 9;
+    while (col_temp >= 0 && dest_square >= A1 && pos.getPiece(dest_square) == EMPTY)
+    {
+      dest_square -= 9;
+      --col_temp;
+    }
+    if (col_temp >= 0)
+    {
+      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
+    }
+
+    // вверх влево
+    col_temp = (square % 8) - 1;
+    dest_square = square + 7;
+    while (col_temp >= 0 && dest_square <= H8 && pos.getPiece(dest_square) == EMPTY)
+    {
+      dest_square += 7;
+      --col_temp;
+    }
+    if (col_temp >= 0)
+    {
+      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      {
+        return true;
+      }
     }
 
     return false;
@@ -373,7 +550,7 @@ namespace chess
     {
       Move move = moves.get(i);
       new_pos.makeMove(move, undo);
-      if (!isKingAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
+      if (!isSquareAttackedQuick(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare()), new_pos.isWhiteToMove()))
       {
         legal_moves.push(move);
       }
@@ -394,9 +571,8 @@ namespace chess
 
   bool MoveGenerator::isStaleMate(const Position& pos)
   {
-    Position toggled_pos = pos.getToggledSideToMovePosition();
     if (generateLegalMoves(pos).empty()
-      && !isKingAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
+      && !isSquareAttackedQuick(pos, static_cast< Square >(pos.getCurentColourKingSquare()), !pos.isWhiteToMove()))
     {
       return true;
     }
@@ -405,8 +581,7 @@ namespace chess
 
   bool MoveGenerator::isCheck(const Position& pos)
   {
-    Position toggled_pos = pos.getToggledSideToMovePosition();
-    if (isKingAttacked(toggled_pos, static_cast< Square >(toggled_pos.getOppositeColourKingSquare())))
+    if (isSquareAttackedQuick(pos, static_cast< Square >(pos.getCurentColourKingSquare()), !pos.isWhiteToMove()))
     {
       return true;
     }
@@ -691,10 +866,11 @@ namespace chess
     {
       Move curr = active_moves.get(i);
       new_pos.makeMove(curr, undo);
-      if (!isKingAttacked(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare())))
+      if (!isSquareAttackedQuick(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare()), new_pos.isWhiteToMove()))
       {
         legal_moves.push(curr);
       }
+      new_pos.undoMove(curr, undo);
     }
     return legal_moves;
   }

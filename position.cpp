@@ -385,6 +385,11 @@ namespace chess
     return isWhiteToMove() ? blackKingSquare_ : whiteKingSquare_;
   }
 
+  int Position::getCurentColourKingSquare() const
+  {
+    return isWhiteToMove() ? whiteKingSquare_ : blackKingSquare_;
+  }
+
   Castling Position::getCastling() const
   {
     if (whiteToMove_)
