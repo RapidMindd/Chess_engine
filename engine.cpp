@@ -8,12 +8,12 @@ namespace chess
   const int MIN = -30000;
   const int MATE = 29000;
 
-  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply)
+  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes)
   {
     if (depth == 0)
     {
       // return Evaluator{}.relative_eval(pos);
-      return quiescence(pos, alpha, beta, ply);
+      return quiescence(pos, alpha, beta, ply, nodes);
     }
 
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -33,8 +33,9 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
+      ++nodes.nnodes;
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1));
+      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -47,7 +48,7 @@ namespace chess
     return eval;
   }
 
-  int Engine::quiescence(Position& pos, int alpha, int beta, int ply)
+  int Engine::quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& nodes)
   {
     UndoInfo undo;
     MoveArray moves;
@@ -78,8 +79,9 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
+      ++nodes.qnodes;
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1));
+      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -94,6 +96,7 @@ namespace chess
 
   std::pair< Move, int > Engine::findBestMove(Position& pos, int depth)
   {
+    SearchNodes nodes;
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
     int eval = MIN;
@@ -104,7 +107,31 @@ namespace chess
     {
       MvBestMoveToBeg(moves, i);
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes);
+      if (cur_eval > eval)
+      {
+        eval = cur_eval;
+        move = moves.get(i);
+        alpha = eval;
+      }
+      pos.undoMove(moves.get(i), undo);
+    }
+    return {move, eval};
+  }
+
+  std::pair< Move, int > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
+  {
+    MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
+    Move move;
+    int eval = MIN;
+    int alpha = MIN;
+    UndoInfo undo;
+    rateMoves(moves, pos);
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      MvBestMoveToBeg(moves, i);
+      pos.makeMove(moves.get(i), undo);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes);
       if (cur_eval > eval)
       {
         eval = cur_eval;
