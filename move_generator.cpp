@@ -437,7 +437,7 @@ namespace chess
       dest_square += 9;
       ++col_temp;
     }
-    if (8 - col_temp > 0)
+    if (8 - col_temp > 0 && dest_square <= H8)
     {
       if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
       {
@@ -453,7 +453,7 @@ namespace chess
       dest_square -= 7;
       ++col_temp;
     }
-    if (8 - col_temp > 0)
+    if (8 - col_temp > 0 && dest_square >= A1)
     {
       if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
       {
@@ -469,7 +469,7 @@ namespace chess
       dest_square -= 9;
       --col_temp;
     }
-    if (col_temp >= 0)
+    if (col_temp >= 0 && dest_square >= A1)
     {
       if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
       {
@@ -485,7 +485,7 @@ namespace chess
       dest_square += 7;
       --col_temp;
     }
-    if (col_temp >= 0)
+    if (col_temp >= 0 && dest_square <= H8)
     {
       if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
       {
