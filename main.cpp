@@ -1,4 +1,5 @@
 #include <iostream>
+#include <limits>
 #include "position.hpp"
 #include "move.hpp"
 #include "move_generator.hpp"

@@ -4,6 +4,7 @@
 #include "position.hpp"
 #include "move.hpp"
 #include <utility>
+#include <cstdint>
 
 namespace chess
 {

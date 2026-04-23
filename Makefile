@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
-OPTIMIZE = -O3 -march=native -flto
+OPTIMIZE = -O3 -march=native -flto=auto
 
 APP_SRCS = main.cpp
 CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp piece.cpp
