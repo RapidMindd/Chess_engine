@@ -1,0 +1,149 @@
+[
+  {
+    "file": "main.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "main.cpp",
+      "-o",
+      "main.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "main.o"
+  },
+  {
+    "file": "position.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "position.cpp",
+      "-o",
+      "position.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "position.o"
+  },
+  {
+    "file": "move.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "move.cpp",
+      "-o",
+      "move.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "move.o"
+  },
+  {
+    "file": "move_generator.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "move_generator.cpp",
+      "-o",
+      "move_generator.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "move_generator.o"
+  },
+  {
+    "file": "evaluator.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "evaluator.cpp",
+      "-o",
+      "evaluator.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "evaluator.o"
+  },
+  {
+    "file": "engine.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "engine.cpp",
+      "-o",
+      "engine.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "engine.o"
+  },
+  {
+    "file": "piece.cpp",
+    "arguments": [
+      "/usr/bin/g++",
+      "-O3",
+      "-march=native",
+      "-flto=auto",
+      "-Wall",
+      "-Wextra",
+      "-std=c++14",
+      "-MMD",
+      "-MP",
+      "-I/opt/homebrew/include",
+      "-c",
+      "piece.cpp",
+      "-o",
+      "piece.o"
+    ],
+    "directory": "/Users/yaroslav_t/Chess_engine",
+    "output": "piece.o"
+  }
+]

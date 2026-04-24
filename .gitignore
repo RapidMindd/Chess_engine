@@ -6,3 +6,5 @@ tests
 main
 benchs
 *.gcda
+.cache/
+.vscode/

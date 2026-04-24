@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <iostream>
-#include <string>
 
 #include "square.hpp"
 #include "piece.hpp"

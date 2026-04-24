@@ -12,6 +12,7 @@ int main()
   UndoInfo undo;
   Position pos;
   pos.setInitial();
+  pos.print();
   MoveArray valid_moves;
   Move curr;
   while (true)
