@@ -94,7 +94,7 @@ namespace chess
     return alpha;
   }
 
-  std::pair< Move, int > Engine::findBestMove(Position& pos, int depth)
+  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth)
   {
     SearchNodes nodes;
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -116,10 +116,10 @@ namespace chess
       }
       pos.undoMove(moves.get(i), undo);
     }
-    return {move, eval};
+    return {move, eval / 100.0};
   }
 
-  std::pair< Move, int > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
+  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
   {
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
@@ -140,7 +140,7 @@ namespace chess
       }
       pos.undoMove(moves.get(i), undo);
     }
-    return {move, eval};
+    return {move, eval / 100.0};
   }
 
   void Engine::rateMoves(MoveArray& moves, const Position& pos)

@@ -16,8 +16,8 @@ namespace chess
 
   struct Engine
   {
-    std::pair< Move, int> findBestMove(Position& pos, int depth);
-    std::pair< Move, int> findBestMove(Position& pos, int depth, SearchNodes& nodes);
+    std::pair< Move, float> findBestMove(Position& pos, int depth);
+    std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes& nodes);
     int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes);
     int quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& qnodes);
 

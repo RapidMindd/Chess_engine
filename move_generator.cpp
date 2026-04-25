@@ -874,4 +874,161 @@ namespace chess
     }
     return legal_moves;
   }
+
+  int MoveGenerator::countPseudoLegalRookMoves(const Position &pos, Square square)
+  {
+    int count = 0;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+
+    // вверх
+    int dest_square = square + 8;
+    while (dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square += 8;
+    }
+
+    // вниз
+    dest_square = square - 8;
+    while (dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square -= 8;
+    }
+
+    // вправо
+    int col = (square % 8) + 1;
+    dest_square = square + 1;
+    while (8 - col > 0 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      ++dest_square;
+      ++col;
+    }
+
+    // влево
+    col = (square % 8) - 1;
+    dest_square = square - 1;
+    while (col >= 0 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      --dest_square;
+      --col;
+    }
+
+    return count;
+  }
+
+  int MoveGenerator::countPseudoLegalBishopMoves(const Position &pos, Square square)
+  {
+    int count = 0;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+
+    // вверх вправо
+    int col = (square % 8) + 1;
+    int dest_square = square + 9;
+    while (8 - col > 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square += 9;
+      ++col;
+    }
+
+    // вниз вправо
+    col = (square % 8) + 1;
+    dest_square = square - 7;
+    while (8 - col > 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square -= 7;
+      ++col;
+    }
+
+    // вниз влево
+    col = (square % 8) - 1;
+    dest_square = square - 9;
+    while (col >= 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square -= 9;
+      --col;
+    }
+
+    // вверх влево
+    col = (square % 8) - 1;
+    dest_square = square + 7;
+    while (col >= 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
+    {
+      ++count;
+      if (pos.getPiece(dest_square) != EMPTY)
+      {
+        break;
+      }
+      dest_square += 7;
+      --col;
+    }
+
+    return count;
+  }
+
+  int MoveGenerator::countPseudoLegalQueenMoves(const Position &pos, Square square)
+  {
+    return countPseudoLegalRookMoves(pos, square) + countPseudoLegalBishopMoves(pos, square);
+  }
+
+  int MoveGenerator::countPseudoLegalKnightMoves(const Position &pos, Square square)
+  {
+    int count = 0;
+
+    const int row = square / 8;
+    const int col = square % 8;
+    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+
+    int row_offset[8] = {2, 1, -1, -2, -2, -1, 1, 2};
+    int col_offset[8] = {1, 2, 2, 1, -1, -2, -2, -1};
+
+    for (int i = 0; i < 8; ++i)
+    {
+      int new_row = row + row_offset[i];
+      int new_col = col + col_offset[i];
+      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+      {
+        int dest_square = new_row * 8 + new_col;
+        if (pos.getPiece(dest_square) * is_white_piece < 1)
+        {
+          ++count;
+        };
+      }
+    }
+
+    return count;
+  }
 }

@@ -42,5 +42,6 @@ int main()
     auto ans =  Engine{}.findBestMove(pos, 6);
     pos.makeMove(ans.first, undo);
     pos.print();
+    std::cout << "Eval: " << ans.second << "\n";
   }
 }

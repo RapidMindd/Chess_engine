@@ -29,6 +29,11 @@ namespace chess
     static void generateKingCaptures(const Position& pos, Square square, MoveArray& moves);
     static void generatePawnCapturesAndPromotions(const Position& pos, Square square, MoveArray& moves);
 
+    static int countPseudoLegalQueenMoves(const Position& pos, Square square);
+    static int countPseudoLegalBishopMoves(const Position& pos, Square square);
+    static int countPseudoLegalRookMoves(const Position& pos, Square square);
+    static int countPseudoLegalKnightMoves(const Position& pos, Square square);
+
     static bool isSquareAttacked(const Position& pos, Square square);
     static bool isSquareAttackedQuick(const Position& pos, Square square, bool byWhite);
 
