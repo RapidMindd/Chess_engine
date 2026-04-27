@@ -54,9 +54,9 @@ namespace chess
     {
       MvBestMoveToBeg(moves, i);
       ++nodes.nnodes;
-      // uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
+      uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      uint64_t cur_hash = zobristHash(pos);
+      // uint64_t cur_hash = zobristHash(pos);
       eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash));
       pos.undoMove(moves.get(i), undo);
 
@@ -134,7 +134,7 @@ namespace chess
 
   std::pair< Move, float > Engine::findBestMove(Position& pos, int depth)
   {
-    // uint64_t init_hash = zobristHash(pos);
+    uint64_t init_hash = zobristHash(pos);
     SearchNodes nodes;
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
@@ -145,9 +145,9 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
-      // uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
+      uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      uint64_t hash = zobristHash(pos);
+      // uint64_t hash = zobristHash(pos);
       int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, hash);
       if (cur_eval > eval)
       {
@@ -162,7 +162,7 @@ namespace chess
 
   std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
   {
-    // uint64_t init_hash = zobristHash(pos);
+    uint64_t init_hash = zobristHash(pos);
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
     int eval = MIN;
@@ -172,9 +172,9 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
-      // uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
+      uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      uint64_t hash = zobristHash(pos);
+      // uint64_t hash = zobristHash(pos);
       int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, hash);
       if (cur_eval > eval)
       {

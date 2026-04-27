@@ -11,6 +11,7 @@ int main()
 
   SearchNodes nodes;
   Position pos = "r2qr1k1/1bp2pp1/p1nbpn1p/3P2N1/1p5P/P1N1P3/BPQB1PP1/2KR3R b - - 0 15";
+  // Position pos = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
   auto start = std::chrono::high_resolution_clock::now();
 
