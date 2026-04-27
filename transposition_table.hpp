@@ -29,6 +29,7 @@ namespace chess
     uint64_t size_;
 
   public:
+    TranspositionTable();
     TranspositionTable(uint64_t size);
     ~TranspositionTable();
 

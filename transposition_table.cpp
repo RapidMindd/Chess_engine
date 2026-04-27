@@ -3,6 +3,12 @@
 
 namespace chess
 {
+  TranspositionTable::TranspositionTable()
+  {
+    data_ = new TTEntry[1000000];
+    size_ = 1000000;
+  }
+
   TranspositionTable::TranspositionTable(uint64_t size)
   {
     data_ = new TTEntry[size];

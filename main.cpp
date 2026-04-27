@@ -15,6 +15,7 @@ int main()
   pos.print();
   MoveArray valid_moves;
   Move curr;
+  Engine engine;
   while (true)
   {
     if (!(std::cin >> curr))
@@ -39,7 +40,7 @@ int main()
       std::cout << e.what() << "\n";
       continue;
     }
-    auto ans =  Engine{}.findBestMove(pos, 6);
+    auto ans =  engine.findBestMove(pos, 6);
     pos.makeMove(ans.first, undo);
     pos.print();
     std::cout << "Eval: " << ans.second << "\n";

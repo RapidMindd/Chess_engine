@@ -18,10 +18,17 @@ namespace chess
 
   struct Engine
   {
+  private:
+    TranspositionTable tt_;
+
+  public:
+    Engine();
+    Engine(uint64_t size);
+
     std::pair< Move, float> findBestMove(Position& pos, int depth);
     std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes& nodes);
-    int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, TranspositionTable& tt, uint64_t hash);
-    int quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& qnode, TranspositionTable& tt);
+    int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash);
+    int quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& qnode);
 
     void rateMoves(MoveArray& moves, const Position& pos);
     void rateMove(Move& move, const Position& pos);

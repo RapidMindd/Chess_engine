@@ -11,9 +11,9 @@ namespace chess
   const int MIN = -30000;
   const int MATE = 29000;
 
-  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, TranspositionTable& tt, uint64_t hash)
+  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash)
   {
-    TTEntry entry = tt.getEntry(hash);
+    TTEntry entry = tt_.getEntry(hash);
       if (entry.used_ && entry.key_ == hash && entry.depth_ >= depth)
       {
         if (entry.type_ == EXACT)
@@ -32,7 +32,7 @@ namespace chess
 
     if (depth == 0)
     {
-      return quiescence(pos, alpha, beta, ply, nodes, tt);
+      return quiescence(pos, alpha, beta, ply, nodes);
     }
 
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -57,7 +57,7 @@ namespace chess
       // uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       uint64_t cur_hash = zobristHash(pos);
-      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, tt, cur_hash));
+      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -81,12 +81,12 @@ namespace chess
       type = EXACT;
     }
 
-    tt.addEntry(TTEntry{hash, eval, depth, type, true});
+    tt_.addEntry(TTEntry{hash, eval, depth, type, true});
 
     return eval;
   }
 
-  int Engine::quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& nodes, TranspositionTable& tt)
+  int Engine::quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& nodes)
   {
     UndoInfo undo;
     MoveArray moves;
@@ -119,7 +119,7 @@ namespace chess
       MvBestMoveToBeg(moves, i);
       ++nodes.qnodes;
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes, tt));
+      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -134,8 +134,6 @@ namespace chess
 
   std::pair< Move, float > Engine::findBestMove(Position& pos, int depth)
   {
-    initZobristHash();
-    TranspositionTable tt(1000000);
     // uint64_t init_hash = zobristHash(pos);
     SearchNodes nodes;
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -150,7 +148,7 @@ namespace chess
       // uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       uint64_t hash = zobristHash(pos);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, tt, hash);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, hash);
       if (cur_eval > eval)
       {
         eval = cur_eval;
@@ -164,8 +162,6 @@ namespace chess
 
   std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
   {
-    initZobristHash();
-    TranspositionTable tt(1000000);
     // uint64_t init_hash = zobristHash(pos);
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
@@ -179,7 +175,7 @@ namespace chess
       // uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       uint64_t hash = zobristHash(pos);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, tt, hash);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, hash);
       if (cur_eval > eval)
       {
         eval = cur_eval;
@@ -232,5 +228,16 @@ namespace chess
     }
 
     std::swap(moves.moves_[best_ind], moves.moves_[ind]);
+  }
+
+  Engine::Engine()
+  {
+    initZobristHash();
+  }
+
+  Engine::Engine(uint64_t size):
+    tt_(size)
+  {
+    initZobristHash();
   }
 };
