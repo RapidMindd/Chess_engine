@@ -11,7 +11,6 @@ namespace chess
     material(pos, eval);
     mobility(pos, eval);
     piece_square_tables(pos, eval);
-    // center_control(pos, eval);
 
     return eval;
   }

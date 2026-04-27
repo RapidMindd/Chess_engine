@@ -12,7 +12,6 @@ namespace chess
 
     static void material(const Position& pos, int& eval);
     static void mobility(const Position& pos, int& eval);
-    static void center_control(const Position& pos, int& eval);
     static void piece_square_tables(const Position& pos, int& eval);
   };
 }

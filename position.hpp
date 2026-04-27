@@ -64,6 +64,7 @@ namespace chess
     int getOppositeColourKingSquare() const;
     int getCurentColourKingSquare() const;
     Castling getCastling() const;
+    int getCastlingRights() const;
     bool isWhiteToMove() const noexcept;
 
     void makeMove(const Move& move, UndoInfo& undo) noexcept;

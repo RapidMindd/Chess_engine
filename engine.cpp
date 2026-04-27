@@ -2,18 +2,37 @@
 #include "evaluator.hpp"
 #include "move.hpp"
 #include "move_generator.hpp"
+#include "transposition_table.hpp"
+#include "zobrist.hpp"
+#include <cstdint>
 
 namespace chess
 {
   const int MIN = -30000;
   const int MATE = 29000;
 
-  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes)
+  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, TranspositionTable& tt, uint64_t hash)
   {
+    TTEntry entry = tt.getEntry(hash);
+      if (entry.used_ && entry.key_ == hash && entry.depth_ >= depth)
+      {
+        if (entry.type_ == EXACT)
+        {
+          return entry.eval_;
+        }
+        else if (entry.type_ == LOWER_BOUND && entry.eval_ >= beta)
+        {
+          return beta;
+        }
+        else if (entry.type_ == UPPER_BOUND && entry.eval_ <= alpha)
+        {
+          return alpha;
+        }
+      }
+
     if (depth == 0)
     {
-      // return Evaluator{}.relative_eval(pos);
-      return quiescence(pos, alpha, beta, ply, nodes);
+      return quiescence(pos, alpha, beta, ply, nodes, tt);
     }
 
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -28,14 +47,17 @@ namespace chess
 
     rateMoves(moves, pos);
 
+    int alpha_orig = alpha;
     int eval = MIN;
     UndoInfo undo;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
       ++nodes.nnodes;
+      // uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes));
+      uint64_t cur_hash = zobristHash(pos);
+      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, tt, cur_hash));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -45,10 +67,26 @@ namespace chess
       }
     }
 
+    TTEntryType type;
+    if (eval <= alpha_orig)
+    {
+      type = UPPER_BOUND;
+    }
+    else if (eval >= beta)
+    {
+      type = LOWER_BOUND;
+    }
+    else
+    {
+      type = EXACT;
+    }
+
+    tt.addEntry(TTEntry{hash, eval, depth, type, true});
+
     return eval;
   }
 
-  int Engine::quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& nodes)
+  int Engine::quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& nodes, TranspositionTable& tt)
   {
     UndoInfo undo;
     MoveArray moves;
@@ -81,7 +119,7 @@ namespace chess
       MvBestMoveToBeg(moves, i);
       ++nodes.qnodes;
       pos.makeMove(moves.get(i), undo);
-      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
+      eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes, tt));
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -96,6 +134,9 @@ namespace chess
 
   std::pair< Move, float > Engine::findBestMove(Position& pos, int depth)
   {
+    initZobristHash();
+    TranspositionTable tt(1000000);
+    // uint64_t init_hash = zobristHash(pos);
     SearchNodes nodes;
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
@@ -106,8 +147,10 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
+      // uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes);
+      uint64_t hash = zobristHash(pos);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, tt, hash);
       if (cur_eval > eval)
       {
         eval = cur_eval;
@@ -116,11 +159,14 @@ namespace chess
       }
       pos.undoMove(moves.get(i), undo);
     }
-    return {move, eval / 100.0};
+    return {move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
   }
 
   std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
   {
+    initZobristHash();
+    TranspositionTable tt(1000000);
+    // uint64_t init_hash = zobristHash(pos);
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     Move move;
     int eval = MIN;
@@ -130,8 +176,10 @@ namespace chess
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
+      // uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes);
+      uint64_t hash = zobristHash(pos);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, tt, hash);
       if (cur_eval > eval)
       {
         eval = cur_eval;
@@ -140,7 +188,7 @@ namespace chess
       }
       pos.undoMove(moves.get(i), undo);
     }
-    return {move, eval / 100.0};
+    return {move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
   }
 
   void Engine::rateMoves(MoveArray& moves, const Position& pos)

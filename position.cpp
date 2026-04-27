@@ -405,4 +405,9 @@ namespace chess
     new_pos.whiteToMove_ = !new_pos.whiteToMove_;
     return new_pos;
   }
+
+  int Position::getCastlingRights() const
+  {
+    return( whiteKingCastling_ * 8) + (whiteQueenCastling_ * 4) + (blackKingCastling_ * 2) + blackQueenCastling_;
+  }
 }

@@ -3,7 +3,7 @@ CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
 OPTIMIZE = -O3 -march=native -flto=auto
 
 APP_SRCS = main.cpp
-CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp piece.cpp
+CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp piece.cpp transposition_table.cpp zobrist.cpp
 TEST_SRCS = test-main.cpp test-position.cpp test-move_generator.cpp test-engine.cpp
 BENCH_SRCS = speed-bench.cpp
 
