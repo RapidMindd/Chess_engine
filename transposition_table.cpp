@@ -5,8 +5,9 @@ namespace chess
 {
   TranspositionTable::TranspositionTable()
   {
-    data_ = new TTEntry[1000000];
-    size_ = 1000000;
+    uint64_t size = 1ULL << 22;
+    data_ = new TTEntry[size];
+    size_ = size;
   }
 
   TranspositionTable::TranspositionTable(uint64_t size)
@@ -22,11 +23,11 @@ namespace chess
 
   void TranspositionTable::addEntry(TTEntry entry)
   {
-    data_[entry.key_ % size_] = entry;
+    data_[entry.key_ & (size_ - 1)] = entry;
   }
 
   TTEntry& TranspositionTable::getEntry(uint64_t key)
   {
-    return data_[key % size_];
+    return data_[key & (size_ - 1)];
   }
 }
