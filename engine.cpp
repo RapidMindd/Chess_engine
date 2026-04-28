@@ -2,8 +2,10 @@
 #include "evaluator.hpp"
 #include "move.hpp"
 #include "move_generator.hpp"
+#include "piece.hpp"
 #include "transposition_table.hpp"
 #include "zobrist.hpp"
+#include "piece_square_tables.hpp"
 #include <cstdint>
 
 namespace chess
@@ -208,6 +210,26 @@ namespace chess
     if (move.promotionPiece_ != EMPTY)
     {
       score += 12000 + std::abs(move.promotionPiece_);
+    }
+
+    Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
+    int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;
+    switch (abs_piece)
+    {
+      case WHITE_KING:
+        score += king_table[move.to_] - king_table[move.from_];
+      case WHITE_QUEEN:
+        score += queen_table[move.to_] - queen_table[move.from_];
+        break;
+      case WHITE_KNIGHT:
+        score += knight_table[move.to_] - knight_table[move.from_];
+        break;
+      case WHITE_BISHOP:
+        score += bishop_table[move.to_] - bishop_table[move.from_];
+        break;
+      case WHITE_PAWN:
+        score += pawn_table[move.to_] - pawn_table[move.from_];
+        break;
     }
 
     move.score_ = score;
