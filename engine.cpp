@@ -139,6 +139,14 @@ namespace chess
     uint64_t init_hash = zobristHash(pos);
     SearchNodes nodes;
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
+    if (moves.empty())
+    {
+      if (MoveGenerator{}.isCheck(pos))
+      {
+        return {null_move,-MATE};
+      }
+      return {null_move,0};
+    }
     Move move;
     int eval = MIN;
     int alpha = MIN;
@@ -166,6 +174,14 @@ namespace chess
   {
     uint64_t init_hash = zobristHash(pos);
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
+    if (moves.empty())
+    {
+      if (MoveGenerator{}.isCheck(pos))
+      {
+        return {null_move,-MATE};
+      }
+      return {null_move,0};
+    }
     Move move;
     int eval = MIN;
     int alpha = MIN;

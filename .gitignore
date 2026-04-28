@@ -5,6 +5,7 @@ settings.json
 tests
 main
 benchs
+itselfs
 *.gcda
 .cache/
 .vscode/

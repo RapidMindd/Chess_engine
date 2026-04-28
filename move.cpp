@@ -134,7 +134,7 @@ namespace chess
         return moves.get(i);
       }
     }
-    return Move{A1, A1};
+    return null_move;
   }
 
   Move getMove(const MoveArray& moves, Move move)

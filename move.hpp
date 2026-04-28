@@ -3,6 +3,7 @@
 
 #include <iosfwd>
 #include "position.hpp"
+#include "square.hpp"
 
 namespace chess
 {
@@ -15,6 +16,7 @@ namespace chess
     bool isCastling_ = 0;
     int score_ = 0;
   };
+  const Move null_move = {A1, A1};
 
   struct MoveArray
   {

@@ -36,6 +36,7 @@ int main(int argc, char** argv)
       ++i;
     }
   }
+
   SearchNodes nodes;
   constexpr int size = 3;
   const char* pos[size] = {
