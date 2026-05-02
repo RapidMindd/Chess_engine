@@ -48,9 +48,6 @@ namespace chess
     int whiteKingSquare_ = -1;
     int blackKingSquare_ = -1;
 
-    bool isWhiteCastled_ = 0;
-    bool isBlackCastled_ = 0;
-
   public:
     Position();
     Position(std::initializer_list< std::pair< Square, Piece > > pieces,
@@ -71,8 +68,6 @@ namespace chess
     Castling getCastling() const;
     int getCastlingRights() const;
     bool isWhiteToMove() const noexcept;
-    bool isWhiteCastled() const;
-    bool isBlackCastled() const;
 
     void makeMove(const Move& move, UndoInfo& undo) noexcept;
     void undoMove(const Move& move, const UndoInfo& undo) noexcept;

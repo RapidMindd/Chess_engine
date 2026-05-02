@@ -96,8 +96,8 @@ namespace chess
 
   void Evaluator::pawn_structure(const Position &pos, int &eval)
   {
-    int white_pawn_cols[8];
-    int black_pawn_cols[8];
+    int white_pawn_cols[8] = {};
+    int black_pawn_cols[8] = {};
     for (int i = A1; i <= H8; ++i)
     {
       Piece cur_piece = static_cast< Piece >(pos.getPiece(i));
@@ -113,7 +113,7 @@ namespace chess
 
     for (int i = 1; i < 7; ++i)
     {
-      if (white_pawn_cols[i] == 2)
+      if (white_pawn_cols[i] >= 2)
       {
         if (white_pawn_cols[i + 1] == 0 && white_pawn_cols[i - 1] == 0)
         {
@@ -124,7 +124,7 @@ namespace chess
           eval -= 15;
         }
       }
-      if (black_pawn_cols[i] == 2)
+      if (black_pawn_cols[i] >= 2)
       {
         if (black_pawn_cols[i + 1] == 0 && black_pawn_cols[i - 1] == 0)
         {
@@ -136,19 +136,20 @@ namespace chess
         }
       }
     }
-    if (white_pawn_cols[0] == 2) eval -= 40;
-    if (black_pawn_cols[0] == 2) eval += 40;
-    if (white_pawn_cols[7] == 2) eval -= 40;
-    if (black_pawn_cols[7] == 2) eval += 40;
+    if (white_pawn_cols[0] >= 2) eval -= 40;
+    if (black_pawn_cols[0] >= 2) eval += 40;
+    if (white_pawn_cols[7] >= 2) eval -= 40;
+    if (black_pawn_cols[7] >= 2) eval += 40;
   }
 
   void Evaluator::king_safety(const Position &pos, int &eval)
   {
-    if (pos.isWhiteCastled())
+    const int white_king_square = pos.getWhiteKingSquare();
+    const int black_king_square = pos.getBlackKingSquare();
+    if (white_king_square % 8 != 3 && white_king_square % 8 != 4)
     {
-      int king_square = pos.getWhiteKingSquare();
-      int row = king_square / 8;
-      int col = king_square % 8;
+      int row = white_king_square / 8;
+      int col = white_king_square % 8;
       if (row < 2)
       {
         int c1 = col - 1;
@@ -162,7 +163,7 @@ namespace chess
           for (int c = c1; c <= c2; ++c)
           {
             int square = r * 8 + c;
-            if (square == king_square)
+            if (square == white_king_square)
                 continue;
             if (pos.getPiece(square) == WHITE_PAWN)
             {
@@ -173,11 +174,10 @@ namespace chess
       }
     }
 
-    if (pos.isBlackCastled())
+    if (black_king_square % 8 != 3 && black_king_square % 8 != 4)
     {
-      int king_square = pos.getBlackKingSquare();
-      int row = king_square / 8;
-      int col = king_square % 8;
+      int row = black_king_square / 8;
+      int col = black_king_square % 8;
       if (row > 5)
       {
         int c1 = col - 1;
@@ -186,12 +186,12 @@ namespace chess
         if (c1 < 0) c1 = 0;
         if (c2 > 7) c2 = 7;
 
-        for (int r = row; r <= row - 1; --r)
+        for (int r = row; r >= row - 1; --r)
         {
           for (int c = c1; c <= c2; ++c)
           {
             int square = r * 8 + c;
-            if (square == king_square)
+            if (square == black_king_square)
                 continue;
             if (pos.getPiece(square) == BLACK_PAWN)
             {

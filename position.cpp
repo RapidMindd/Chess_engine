@@ -273,7 +273,6 @@ namespace chess
         board_[move.to_ + 1] = static_cast< Piece >(WHITE_ROOK * is_white_piece);
         board_[move.to_ - 2] = EMPTY;
       }
-      is_white_piece ? isWhiteCastled_ = 1 : isBlackCastled_ = 1;
     }
 
     if (move.to_ == H1 || move.from_ == H1)
@@ -345,7 +344,6 @@ namespace chess
         board_[move.to_ + 1] = EMPTY;
         board_[move.to_ - 2] = static_cast< Piece >(WHITE_ROOK * is_white_piece);
       }
-      is_white_piece ? isWhiteCastled_ = 0 : isBlackCastled_ = 0;
     }
   }
 
@@ -411,16 +409,6 @@ namespace chess
   int Position::getCastlingRights() const
   {
     return( whiteKingCastling_ * 8) + (whiteQueenCastling_ * 4) + (blackKingCastling_ * 2) + blackQueenCastling_;
-  }
-
-  bool Position::isWhiteCastled() const
-  {
-    return isWhiteCastled_;
-  }
-
-  bool Position::isBlackCastled() const
-  {
-    return isBlackCastled_;
   }
 
   int Position::getWhiteKingSquare() const
