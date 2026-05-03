@@ -50,7 +50,7 @@ int main(int argc, char** argv)
   for (int i = 0; i < size; ++i)
   {
     Position cur = pos[i];
-    auto ans = Engine{}.findBestMove(cur, depth, nodes);
+    auto ans = Engine{}.findBestMove(cur, depth, &nodes);
     std::cout << ans.first << " " << ans.second << "\n";
   }
 

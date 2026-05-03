@@ -25,8 +25,7 @@ namespace chess
     Engine();
     Engine(uint64_t size);
 
-    std::pair< Move, float> findBestMove(Position& pos, int depth);
-    std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes& nodes);
+    std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes* nodes = nullptr);
     int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash);
     int quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& qnode);
 

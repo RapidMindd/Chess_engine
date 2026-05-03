@@ -140,7 +140,7 @@ namespace chess
   {
     const int white_king_square = pos.getWhiteKingSquare();
     const int black_king_square = pos.getBlackKingSquare();
-    if (white_king_square % 8 != 3 && white_king_square % 8 != 4)
+    if (white_king_square % 8 != 3 && white_king_square % 8 != 4 && white_king_square % 8 != 5)
     {
       int row = white_king_square / 8;
       int col = white_king_square % 8;
@@ -168,7 +168,7 @@ namespace chess
       }
     }
 
-    if (black_king_square % 8 != 3 && black_king_square % 8 != 4)
+    if (black_king_square % 8 != 3 && black_king_square % 8 != 4  && black_king_square % 8 != 5)
     {
       int row = black_king_square / 8;
       int col = black_king_square % 8;

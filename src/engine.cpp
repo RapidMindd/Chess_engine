@@ -134,44 +134,10 @@ namespace chess
     return alpha;
   }
 
-  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth)
+  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes* nodes)
   {
-    uint64_t init_hash = zobristHash(pos);
-    SearchNodes nodes;
-    MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
-    if (moves.empty())
-    {
-      if (MoveGenerator{}.isCheck(pos))
-      {
-        return {null_move,-MATE};
-      }
-      return {null_move,0};
-    }
-    Move move;
-    int eval = MIN;
-    int alpha = MIN;
-    UndoInfo undo;
-    rateMoves(moves, pos);
-    for (int i = 0; i < moves.size(); ++i)
-    {
-      MvBestMoveToBeg(moves, i);
-      uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
-      pos.makeMove(moves.get(i), undo);
-      // uint64_t hash = zobristHash(pos);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, hash);
-      if (cur_eval > eval)
-      {
-        eval = cur_eval;
-        move = moves.get(i);
-        alpha = eval;
-      }
-      pos.undoMove(moves.get(i), undo);
-    }
-    return {move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
-  }
-
-  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes& nodes)
-  {
+    SearchNodes local_nodes;
+    SearchNodes& search_nodes = nodes ? *nodes : local_nodes;
     uint64_t init_hash = zobristHash(pos);
     MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
     if (moves.empty())
@@ -193,7 +159,7 @@ namespace chess
       uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       // uint64_t hash = zobristHash(pos);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, nodes, hash);
+      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, search_nodes, hash);
       if (cur_eval > eval)
       {
         eval = cur_eval;
