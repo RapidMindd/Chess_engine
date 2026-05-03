@@ -31,9 +31,13 @@ namespace chess
 
     void rateMoves(MoveArray& moves, const Position& pos, const Move& tt_move = null_move);
     void rateMove(Move& move, const Position& pos, const Move& tt_move);
-    void rateCaptures(MoveArray& moves, const Position& pos);
-    void rateCapture(Move& move, const Position& pos);
+    void rateCaptures(MoveArray& moves, Position& pos);
+    void rateCapture(Move& move, Position& pos);
     void MvBestMoveToBeg(MoveArray& moves, int ind);
+
+    Move leastValuableAttacker(const Position& pos, int square);
+    int see(Position& pos, int square);
+    int seeCapture(Position& pos, const Move& move);
   };
 };
 

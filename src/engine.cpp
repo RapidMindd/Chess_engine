@@ -242,7 +242,7 @@ namespace chess
     move.score_ = score;
   }
 
-  void Engine::rateCaptures(MoveArray& moves, const Position& pos)
+  void Engine::rateCaptures(MoveArray& moves, Position& pos)
   {
     for (int i = 0; i < moves.size(); ++i)
     {
@@ -250,13 +250,12 @@ namespace chess
     }
   }
 
-  void Engine::rateCapture(Move& move, const Position& pos)
+  void Engine::rateCapture(Move& move, Position& pos)
   {
     int score = 0;
 
-    int from = pos.getPiece(move.from_);
     int to = pos.getPiece(move.to_);
-    if (weights[std::abs(to)] + 500 < weights[std::abs(from)])
+    if (seeCapture(pos, move) < 0)
     {
       move.score_ = -1000;
       return;
@@ -313,5 +312,55 @@ namespace chess
     tt_(size)
   {
     initZobristHash();
+  }
+
+  Move Engine::leastValuableAttacker(const Position& pos, int square)
+  {
+    MoveArray moves = MoveGenerator::generatePseudoLegalMoves(pos, false);
+    Move best_capture = null_move;
+    int best_value = 1000;
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      Move cur = moves.get(i);
+      int piece = pos.getPiece(cur.from_);
+      if (cur.to_ == square)
+      {
+        int value = weights[std::abs(piece)];
+        if (value < best_value)
+        {
+          best_capture = cur;
+          best_value = value;
+        }
+      }
+    }
+
+    return best_capture;
+  }
+
+  int Engine::see(Position& pos, int square)
+  {
+    Move attack = leastValuableAttacker(pos, square);
+    if (attack == null_move) return 0;
+
+    int captured = weights[std::abs(pos.getPiece(square))];
+    UndoInfo undo;
+
+    pos.makeMove(attack, undo);
+    int value = std::max(0, captured - see(pos, square));
+    pos.undoMove(attack, undo);
+
+    return value;
+  }
+
+  int Engine::seeCapture(Position& pos, const Move& move)
+  {
+    int captured_value = weights[std::abs(pos.getPiece(move.to_))];
+    UndoInfo undo;
+
+    pos.makeMove(move, undo);
+    int opponent_gain = see(pos, move.to_);
+    pos.undoMove(move, undo);
+
+    return captured_value - opponent_gain;
   }
 };
