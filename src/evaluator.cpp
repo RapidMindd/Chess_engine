@@ -2,6 +2,7 @@
 #include "move_generator.hpp"
 #include "piece.hpp"
 #include "piece_square_tables.hpp"
+#include "zobrist.hpp"
 
 namespace chess
 {
@@ -9,10 +10,18 @@ namespace chess
   {
     int eval = 0;
 
-    material(pos, eval);
-    mobility(pos, eval);
-    piece_square_tables(pos, eval);
-    pawn_structure(pos, eval);
+    int white_pawn_cols[8] = {};
+    int black_pawn_cols[8] = {};
+
+    for (int i = A1; i <= H8; ++i)
+    {
+      Piece cur = static_cast< Piece >(pos.getPiece(i));
+      material(cur, eval);
+      mobility(pos, i, cur, eval);
+      piece_square_tables(i, cur, eval);
+      pawn_structure_fill(cur, i, white_pawn_cols, black_pawn_cols);
+    }
+    pawn_structure_eval(white_pawn_cols, black_pawn_cols, eval);
     king_safety(pos, eval);
 
     return eval;
@@ -24,98 +33,83 @@ namespace chess
     return pos.isWhiteToMove() ? eval : -eval;
   }
 
-  void Evaluator::material(const Position& pos, int& eval)
+  void Evaluator::material(Piece piece, int& eval)
   {
     static const int weights[7] = {0, 100, 320, 330, 500, 900, 0};
-    for (int i = A1; i <= H8; ++i)
+    if (piece > 0)
     {
-      Piece cur = static_cast< Piece >(pos.getPiece(i));
-      if (cur > 0)
-      {
-        eval += weights[cur];
-      }
-      else if (cur < 0)
-      {
-        eval -= weights[-cur];
-      }
+      eval += weights[piece];
+    }
+    else if (piece < 0)
+    {
+      eval -= weights[-piece];
     }
   }
 
-  void Evaluator::mobility(const Position &pos, int &eval)
+  void Evaluator::mobility(const Position &pos, int square, Piece piece, int &eval)
   {
-    for (int i = A1; i <= H8; ++i)
+    const int piece_color = piece > 0 ? 1 : -1;
+    int abs_piece = piece * piece_color;
+    switch (abs_piece)
     {
-      Piece cur_piece = static_cast< Piece >(pos.getPiece(i));
-      const int piece_color = cur_piece > 0 ? 1 : -1;
-      int abs_piece = cur_piece * piece_color;
-      switch (abs_piece)
-      {
-        case WHITE_QUEEN:
-          eval += MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(i)) * piece_color * 1;
-          break;
-        case WHITE_KNIGHT:
-          eval += MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(i)) * piece_color * 4;
-          break;
-        case WHITE_BISHOP:
-          eval += MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(i)) * piece_color * 5;
-          break;
-        case WHITE_ROOK:
-          eval += MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(i)) * piece_color * 2;
-          break;
-      }
+      case WHITE_QUEEN:
+        eval += MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(square)) * piece_color * 1;
+        break;
+      case WHITE_KNIGHT:
+        eval += MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(square)) * piece_color * 4;
+        break;
+      case WHITE_BISHOP:
+        eval += MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(square)) * piece_color * 5;
+        break;
+      case WHITE_ROOK:
+        eval += MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(square)) * piece_color * 2;
+        break;
     }
   }
 
-  void Evaluator::piece_square_tables(const Position &pos, int &eval)
+  void Evaluator::piece_square_tables(int square, Piece piece, int& eval)
   {
-    for (int i = A1; i <= H8; ++i)
+    const int piece_color = piece > 0 ? 1 : -1;
+    int abs_piece = piece * piece_color;
+    switch (abs_piece)
     {
-      Piece cur_piece = static_cast< Piece >(pos.getPiece(i));
-      const int piece_color = cur_piece > 0 ? 1 : -1;
-      int abs_piece = cur_piece * piece_color;
-      switch (abs_piece)
-      {
-        case WHITE_KING:
-          eval += king_table[piece_color == 1 ? i : i ^ 56] * piece_color;
-          break;
-        case WHITE_QUEEN:
-          eval += queen_table[piece_color == 1 ? i : i ^ 56] * piece_color;
-          break;
-        case WHITE_KNIGHT:
-          eval += knight_table[piece_color == 1 ? i : i ^ 56] * piece_color;
-          break;
-        case WHITE_BISHOP:
-          eval += bishop_table[piece_color == 1 ? i : i ^ 56] * piece_color;
-          break;
-        case WHITE_PAWN:
-          eval += pawn_table[piece_color == 1 ? i : i ^ 56] * piece_color;
-          break;
-      }
+      case WHITE_KING:
+        eval += king_table[piece_color == 1 ? square : square ^ 56] * piece_color;
+        break;
+      case WHITE_QUEEN:
+        eval += queen_table[piece_color == 1 ? square : square ^ 56] * piece_color;
+        break;
+      case WHITE_KNIGHT:
+        eval += knight_table[piece_color == 1 ? square : square ^ 56] * piece_color;
+        break;
+      case WHITE_BISHOP:
+        eval += bishop_table[piece_color == 1 ? square : square ^ 56] * piece_color;
+        break;
+      case WHITE_PAWN:
+        eval += pawn_table[piece_color == 1 ? square : square ^ 56] * piece_color;
+        break;
     }
   }
 
-  void Evaluator::pawn_structure(const Position &pos, int &eval)
+  void Evaluator::pawn_structure_fill(Piece piece, int square, int* white, int* black)
   {
-    int white_pawn_cols[8] = {};
-    int black_pawn_cols[8] = {};
-    for (int i = A1; i <= H8; ++i)
+    if (piece == WHITE_PAWN)
     {
-      Piece cur_piece = static_cast< Piece >(pos.getPiece(i));
-      if (cur_piece == WHITE_PAWN)
-      {
-        white_pawn_cols[i % 8] += 1;
-      }
-      else if (cur_piece == BLACK_PAWN)
-      {
-        black_pawn_cols[i % 8] += 1;
-      }
+      white[square % 8] += 1;
     }
+    else if (piece == BLACK_PAWN)
+    {
+      black[square % 8] += 1;
+    }
+  }
 
+  void Evaluator::pawn_structure_eval(int *white, int *black, int& eval)
+  {
     for (int i = 1; i < 7; ++i)
     {
-      if (white_pawn_cols[i] >= 2)
+      if (white[i] >= 2)
       {
-        if (white_pawn_cols[i + 1] == 0 && white_pawn_cols[i - 1] == 0)
+        if (white[i + 1] == 0 && white[i - 1] == 0)
         {
           eval -= 40;
         }
@@ -124,9 +118,9 @@ namespace chess
           eval -= 15;
         }
       }
-      if (black_pawn_cols[i] >= 2)
+      if (black[i] >= 2)
       {
-        if (black_pawn_cols[i + 1] == 0 && black_pawn_cols[i - 1] == 0)
+        if (black[i + 1] == 0 && black[i - 1] == 0)
         {
           eval += 40;
         }
@@ -136,10 +130,10 @@ namespace chess
         }
       }
     }
-    if (white_pawn_cols[0] >= 2) eval -= 40;
-    if (black_pawn_cols[0] >= 2) eval += 40;
-    if (white_pawn_cols[7] >= 2) eval -= 40;
-    if (black_pawn_cols[7] >= 2) eval += 40;
+    if (white[0] >= 2) eval -= 40;
+    if (black[0] >= 2) eval += 40;
+    if (white[7] >= 2) eval -= 40;
+    if (black[7] >= 2) eval += 40;
   }
 
   void Evaluator::king_safety(const Position &pos, int &eval)
