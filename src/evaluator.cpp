@@ -35,7 +35,6 @@ namespace chess
 
   void Evaluator::material(Piece piece, int& eval)
   {
-    static const int weights[7] = {0, 100, 320, 330, 500, 900, 0};
     if (piece > 0)
     {
       eval += weights[piece];

@@ -21,6 +21,7 @@ namespace chess
     BLACK_QUEEN = -5,
     BLACK_KING = -6
   };
+  constexpr int weights[7] = {0, 100, 320, 330, 500, 900, 0};
 
   Piece charToPiece(char c) noexcept;
   char pieceToChar(Piece piece) noexcept;

@@ -208,7 +208,6 @@ namespace chess
       return;
     }
 
-    static const int weights[7] = {0, 100, 320, 330, 500, 900, 0};
     int to = pos.getPiece(move.to_);
     if (to != EMPTY)
     {
@@ -255,7 +254,6 @@ namespace chess
   {
     int score = 0;
 
-    static const int weights[7] = {0, 100, 320, 330, 500, 900, 0};
     int from = pos.getPiece(move.from_);
     int to = pos.getPiece(move.to_);
     if (weights[std::abs(to)] + 500 < weights[std::abs(from)])
