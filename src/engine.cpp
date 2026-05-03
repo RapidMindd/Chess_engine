@@ -3,6 +3,7 @@
 #include "move.hpp"
 #include "move_generator.hpp"
 #include "piece.hpp"
+#include "position.hpp"
 #include "transposition_table.hpp"
 #include "zobrist.hpp"
 #include "piece_square_tables.hpp"
@@ -104,6 +105,8 @@ namespace chess
     UndoInfo undo;
     MoveArray moves;
 
+    bool isActive = 0;
+
     if (MoveGenerator{}.isCheck(pos))
     {
       moves = MoveGenerator{}.generateLegalMoves(pos);
@@ -123,13 +126,18 @@ namespace chess
       }
 
       moves = MoveGenerator{}.generateActiveMoves(pos);
+      isActive = 1;
     }
 
-    rateMoves(moves, pos);
+    isActive ? rateCaptures(moves, pos) : rateMoves(moves, pos);
     int eval = MIN;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
+      if (moves.get(i).score_ == -1000)
+      {
+        break;
+      }
       ++nodes.qnodes;
       pos.makeMove(moves.get(i), undo);
       eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
@@ -210,6 +218,52 @@ namespace chess
     {
       score += 12000 + std::abs(move.promotionPiece_);
     }
+
+    Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
+    int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;
+    switch (abs_piece)
+    {
+      case WHITE_KING:
+        score += king_table[move.to_] - king_table[move.from_];
+        break;
+      case WHITE_QUEEN:
+        score += queen_table[move.to_] - queen_table[move.from_];
+        break;
+      case WHITE_KNIGHT:
+        score += knight_table[move.to_] - knight_table[move.from_];
+        break;
+      case WHITE_BISHOP:
+        score += bishop_table[move.to_] - bishop_table[move.from_];
+        break;
+      case WHITE_PAWN:
+        score += pawn_table[move.to_] - pawn_table[move.from_];
+        break;
+    }
+
+    move.score_ = score;
+  }
+
+  void Engine::rateCaptures(MoveArray& moves, const Position& pos)
+  {
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      rateCapture(moves.moves_[i], pos);
+    }
+  }
+
+  void Engine::rateCapture(Move& move, const Position& pos)
+  {
+    int score = 0;
+
+    static const int weights[7] = {0, 100, 320, 330, 500, 900, 0};
+    int from = pos.getPiece(move.from_);
+    int to = pos.getPiece(move.to_);
+    if (weights[std::abs(to)] + 500 < weights[std::abs(from)])
+    {
+      move.score_ = -1000;
+      return;
+    }
+    score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
 
     Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
     int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;

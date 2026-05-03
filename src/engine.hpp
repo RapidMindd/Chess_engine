@@ -31,6 +31,8 @@ namespace chess
 
     void rateMoves(MoveArray& moves, const Position& pos, const Move& tt_move = null_move);
     void rateMove(Move& move, const Position& pos, const Move& tt_move);
+    void rateCaptures(MoveArray& moves, const Position& pos);
+    void rateCapture(Move& move, const Position& pos);
     void MvBestMoveToBeg(MoveArray& moves, int ind);
   };
 };
