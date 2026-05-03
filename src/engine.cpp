@@ -15,8 +15,11 @@ namespace chess
 
   int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash)
   {
+    Move tt_move = null_move;
     TTEntry entry = tt_.getEntry(hash);
-      if (entry.used_ && entry.key_ == hash && entry.depth_ >= depth)
+    if (entry.used_ && entry.key_ == hash)
+    {
+      if (entry.depth_ >= depth)
       {
         if (entry.type_ == EXACT)
         {
@@ -31,6 +34,8 @@ namespace chess
           return alpha;
         }
       }
+      tt_move = entry.bestMove_;
+    }
 
     if (depth == 0)
     {
@@ -47,11 +52,12 @@ namespace chess
       return 0;
     }
 
-    rateMoves(moves, pos);
+    rateMoves(moves, pos, tt_move);
 
     int alpha_orig = alpha;
     int eval = MIN;
     UndoInfo undo;
+    Move best = null_move;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
@@ -59,7 +65,12 @@ namespace chess
       uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       // uint64_t cur_hash = zobristHash(pos);
-      eval = std::max(eval, -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash));
+      int curr_eval = -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash);
+      if (curr_eval > eval)
+      {
+        eval = curr_eval;
+        best = moves.get(i);
+      }
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -83,7 +94,7 @@ namespace chess
       type = EXACT;
     }
 
-    tt_.addEntry(TTEntry{hash, eval, depth, type, true});
+    tt_.addEntry(TTEntry{hash, eval, depth, type, true, best});
 
     return eval;
   }
@@ -171,17 +182,23 @@ namespace chess
     return {move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
   }
 
-  void Engine::rateMoves(MoveArray& moves, const Position& pos)
+  void Engine::rateMoves(MoveArray& moves, const Position& pos, const Move& tt_move)
   {
     for (int i = 0; i < moves.size(); ++i)
     {
-      rateMove(moves.moves_[i], pos);
+      rateMove(moves.moves_[i], pos, tt_move);
     }
   }
 
-  void Engine::rateMove(Move& move, const Position& pos)
+  void Engine::rateMove(Move& move, const Position& pos, const Move& tt_move)
   {
     int score = 0;
+
+    if (move == tt_move)
+    {
+      move.score_ = 100000;
+      return;
+    }
 
     static const int weights[7] = {0, 100, 320, 330, 500, 900, 0};
     int to = pos.getPiece(move.to_);
@@ -200,6 +217,7 @@ namespace chess
     {
       case WHITE_KING:
         score += king_table[move.to_] - king_table[move.from_];
+        break;
       case WHITE_QUEEN:
         score += queen_table[move.to_] - queen_table[move.from_];
         break;

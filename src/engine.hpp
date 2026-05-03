@@ -29,8 +29,8 @@ namespace chess
     int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash);
     int quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& qnode);
 
-    void rateMoves(MoveArray& moves, const Position& pos);
-    void rateMove(Move& move, const Position& pos);
+    void rateMoves(MoveArray& moves, const Position& pos, const Move& tt_move = null_move);
+    void rateMove(Move& move, const Position& pos, const Move& tt_move);
     void MvBestMoveToBeg(MoveArray& moves, int ind);
   };
 };

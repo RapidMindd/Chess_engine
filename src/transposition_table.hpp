@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "position.hpp"
+#include "move.hpp"
 
 namespace chess
 {
@@ -20,6 +21,7 @@ namespace chess
     int depth_;
     TTEntryType type_;
     bool used_ = 0;
+    Move bestMove_;
   };
 
   struct TranspositionTable
