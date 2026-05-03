@@ -1,7 +1,7 @@
 // translate moves from square1-square2 to PieceSquareTo
 // improve Makefile
-change project structure (add folders)
-add README
+// change project structure (add folders)
+// add README
 optimize evaluation function (1 cycle instead of several)
 add killer move in move order
 add more aggressive pruning (zero move prunin maybe)
