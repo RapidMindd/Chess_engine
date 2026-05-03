@@ -1,5 +1,5 @@
-translate moves from square1-square2 to PieceSquareTo
-improve Makefile
+// translate moves from square1-square2 to PieceSquareTo
+// improve Makefile
 change project structure (add folders)
 add README
 optimize evaluation function (1 cycle instead of several)

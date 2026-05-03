@@ -1,12 +1,18 @@
 CXX = g++
 CXXFLAGS += -Wall -Wextra -std=c++14 -MMD -MP -I/opt/homebrew/include
 OPTIMIZE = -O3 -march=native -flto=auto
+ARGS ?=
+
+APP_BIN = main
+TEST_BIN = tests
+BENCH_BIN = benchmark
+SELFPLAY_BIN = selfplay-runner
 
 APP_SRCS = main.cpp
-CORE_SRCS = position.cpp move.cpp move_generator.cpp evaluator.cpp engine.cpp piece.cpp transposition_table.cpp zobrist.cpp
-TEST_SRCS = test-main.cpp test-position.cpp test-move_generator.cpp test-engine.cpp
+TEST_SRCS = $(wildcard test-*.cpp)
 BENCH_SRCS = speed-bench.cpp
-ITSELF_PLAY_SRCS = itself_play.cpp
+ITSELF_PLAY_SRCS = selfplay.cpp
+CORE_SRCS = $(filter-out $(APP_SRCS) $(TEST_SRCS) $(BENCH_SRCS) $(ITSELF_PLAY_SRCS),$(wildcard *.cpp))
 
 APP_OBJS = $(APP_SRCS:.cpp=.o)
 CORE_OBJS = $(CORE_SRCS:.cpp=.o)
@@ -16,33 +22,33 @@ ITSELF_PLAY_OBJS = $(ITSELF_PLAY_SRCS:.cpp=.o)
 
 DEPS = $(APP_OBJS:.o=.d) $(CORE_OBJS:.o=.d) $(TEST_OBJS:.o=.d) $(BENCH_OBJS:.o=.d) $(ITSELF_PLAY_OBJS:.o=.d)
 
-main: $(APP_OBJS) $(CORE_OBJS)
+.PHONY: all run test bench selfplay clean
+
+all: $(APP_BIN)
+
+$(APP_BIN): $(APP_OBJS) $(CORE_OBJS)
 	$(CXX) $(OPTIMIZE) $^ -o $@
-	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(DEPS)
 
-run: main
-	./main
+run: $(APP_BIN)
+	./$(APP_BIN) $(ARGS)
 
-test: tests
-	./tests
+test: $(TEST_BIN)
+	./$(TEST_BIN) $(ARGS)
 
-tests: $(TEST_OBJS) $(CORE_OBJS)
+$(TEST_BIN): $(TEST_OBJS) $(CORE_OBJS)
 	$(CXX) $(OPTIMIZE) $^ -o $@
-	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(DEPS)
 
-benchs: $(BENCH_OBJS) $(CORE_OBJS)
+$(BENCH_BIN): $(BENCH_OBJS) $(CORE_OBJS)
 	$(CXX) $(OPTIMIZE) $^ -o $@
-	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(DEPS)
 
-bench: benchs
-	./benchs
+bench: $(BENCH_BIN)
+	./$(BENCH_BIN) $(ARGS)
 
-itselfs: $(ITSELF_PLAY_SRCS) $(CORE_OBJS)
+$(SELFPLAY_BIN): $(ITSELF_PLAY_OBJS) $(CORE_OBJS)
 	$(CXX) $(OPTIMIZE) $^ -o $@
-	@rm -f $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(ITSELF_PLAY_OBJS) $(DEPS)
 
-itself: itselfs
-	./itselfs
+selfplay: $(SELFPLAY_BIN)
+	./$(SELFPLAY_BIN) $(ARGS)
 
 %.o: %.cpp
 	$(CXX) $(OPTIMIZE) $(CXXFLAGS) -c $< -o $@
@@ -50,4 +56,4 @@ itself: itselfs
 -include $(DEPS)
 
 clean:
-	@rm -f main tests benchs itselfs $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(DEPS) *.gcda
+	@rm -f $(APP_BIN) $(TEST_BIN) $(BENCH_BIN) $(SELFPLAY_BIN) $(APP_OBJS) $(CORE_OBJS) $(TEST_OBJS) $(BENCH_OBJS) $(ITSELF_PLAY_OBJS) $(DEPS) *.gcda

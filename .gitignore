@@ -6,6 +6,8 @@ tests
 main
 benchs
 itselfs
+selfplays
+selfplay-runner
 *.gcda
 .cache/
 .vscode/
