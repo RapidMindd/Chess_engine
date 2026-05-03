@@ -1,4 +1,7 @@
 #include "move.hpp"
+#include "move_generator.hpp"
+#include "piece.hpp"
+#include "position.hpp"
 #include <iostream>
 
 namespace chess
@@ -145,5 +148,82 @@ namespace chess
       return returned;
     }
     throw std::logic_error("Illegal move");
+  }
+
+  void printMove(const Move& move, const Position& pos)
+  {
+    int piece = pos.getPiece(move.from_);
+    int abs_piece = piece > 0 ? piece : -piece;
+    char piece_char = pieceToChar(static_cast< Piece >(abs_piece));
+    int row = move.to_ / 8;
+    int col = move.to_ % 8;
+    if (piece_char == 'P')
+    {
+      if (pos.getPiece(move.to_) != EMPTY || move.isEnPassant_)
+      {
+        piece_char = static_cast< char >('a' + (move.from_ % 8));
+      }
+      else
+      {
+        piece_char = '\0';
+      }
+    }
+    Position copy = pos;
+    UndoInfo undo;
+    copy.makeMove(move, undo);
+    bool isCheck = MoveGenerator::isCheck(copy);
+    bool isMate = false;
+    if (isCheck)
+    {
+      isMate = MoveGenerator::isMate(copy);
+    }
+    char check = isCheck ? '+' : '\0';
+    char mate = isMate ? '#' : '\0';
+    if (isMate) check = '\0';
+
+    if (move.isCastling_)
+    {
+      if (move.to_ - move.from_ == 2)
+      {
+        std::cout << "0-0" << check << mate;
+        return;
+      }
+      std::cout << "0-0-0" << check << mate;
+      return;
+    }
+
+    char promotion_piece = '\0';
+    if (move.promotionPiece_ != EMPTY)
+    {
+      promotion_piece = move.promotionPiece_ > 0 ? move.promotionPiece_ : -move.promotionPiece_;
+    }
+
+    char file_from = '\0';
+    char col_from = '\0';
+    char hyphen = '\0';
+    if (abs_piece != WHITE_PAWN)
+    {
+      MoveArray legal_moves = MoveGenerator::generateLegalMoves(pos);
+      for (int i = 0; i < legal_moves.size(); ++i)
+      {
+        Move curr_move = legal_moves.get(i);
+        if (curr_move.to_ == move.to_ && pos.getPiece(curr_move.from_) == piece)
+        {
+          if (curr_move.from_ % 8 != move.from_ % 8)
+          {
+            file_from = static_cast< char >('a' + (move.from_ % 8));
+          }
+          if (curr_move.from_ / 8 != move.from_ / 8)
+          {
+            col_from = (move.from_ / 8) + 1;
+          }
+        }
+      }
+      if (file_from || col_from) hyphen = '-';
+    }
+
+    char capture = (pos.getPiece(move.to_) != EMPTY || move.isCastling_) ? 'x' : '\0';
+    std::cout << piece_char << file_from << col_from << hyphen << capture << static_cast< char >('a' + col)
+      << row + 1 << promotion_piece << check << mate;
   }
 }

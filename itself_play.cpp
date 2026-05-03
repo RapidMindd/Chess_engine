@@ -63,8 +63,8 @@ int main(int argc, char** argv)
       std::cout << pos << "\n";
       break;
     }
+    printMove(next.first, pos);
     pos.makeMove(next.first, undo);
-    std::cout << next.first;
     i % 2 ? std::cout << "\n" : std::cout << " ";
   }
 }
