@@ -1,13 +1,8 @@
 c_cpp_properties.json
 settings.json
-*.o
-*.d
-tests
-main
-benchs
-itselfs
-selfplays
-selfplay-runner
+build/
+bin/
 *.gcda
 .cache/
 .vscode/
+.DS_Store
