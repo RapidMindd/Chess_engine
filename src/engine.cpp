@@ -190,7 +190,7 @@ namespace chess
     return {move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
   }
 
-  void Engine::rateMoves(MoveArray& moves, const Position& pos, const Move& tt_move)
+  void Engine::rateMoves(MoveArray& moves, Position& pos, const Move& tt_move)
   {
     for (int i = 0; i < moves.size(); ++i)
     {
@@ -198,7 +198,7 @@ namespace chess
     }
   }
 
-  void Engine::rateMove(Move& move, const Position& pos, const Move& tt_move)
+  void Engine::rateMove(Move& move, Position& pos, const Move& tt_move)
   {
     int score = 0;
 
@@ -211,7 +211,25 @@ namespace chess
     int to = pos.getPiece(move.to_);
     if (to != EMPTY)
     {
-      score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
+      int from = pos.getPiece(move.from_);
+      int attacker = weights[std::abs(from)];
+      int victim = weights[std::abs(to)];
+      if (victim < attacker)
+      {
+        int see = seeCapture(pos, move);
+        if (see < 0)
+        {
+          score -= 5000 + see;
+        }
+        else
+        {
+          score += 5000 + see;
+        }
+      }
+      else
+      {
+        score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
+      }
     }
     if (move.promotionPiece_ != EMPTY)
     {
@@ -254,13 +272,24 @@ namespace chess
   {
     int score = 0;
 
+    int from = pos.getPiece(move.from_);
     int to = pos.getPiece(move.to_);
-    if (seeCapture(pos, move) < 0)
+    int attacker = weights[std::abs(from)];
+    int victim = weights[std::abs(to)];
+    if (victim < attacker)
     {
-      move.score_ = -1000;
-      return;
+      int see = seeCapture(pos, move);
+      if (see < 50)
+      {
+        move.score_ = -1000;
+        return;
+      }
+      score += 10000 + see;
     }
-    score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
+    else
+    {
+      score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
+    }
 
     Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
     int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;
@@ -348,7 +377,7 @@ namespace chess
       return attacker;
     }
 
-    return MoveGenerator::findKingAttacker(pos, square, side);
+    return null_move;
   }
 
   int Engine::see(Position& pos, int square)
