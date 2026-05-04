@@ -316,25 +316,39 @@ namespace chess
 
   Move Engine::leastValuableAttacker(const Position& pos, int square)
   {
-    MoveArray moves = MoveGenerator::generatePseudoLegalMoves(pos, false);
-    Move best_capture = null_move;
-    int best_value = 1000;
-    for (int i = 0; i < moves.size(); ++i)
+    const int side = pos.isWhiteToMove() ? 1 : -1;
+
+    Move attacker = MoveGenerator::findPawnAttacker(pos, square, side);
+    if (attacker != null_move)
     {
-      Move cur = moves.get(i);
-      int piece = pos.getPiece(cur.from_);
-      if (cur.to_ == square)
-      {
-        int value = weights[std::abs(piece)];
-        if (value < best_value)
-        {
-          best_capture = cur;
-          best_value = value;
-        }
-      }
+      return attacker;
     }
 
-    return best_capture;
+    attacker = MoveGenerator::findKnightAttacker(pos, square, side);
+    if (attacker != null_move)
+    {
+      return attacker;
+    }
+
+    attacker = MoveGenerator::findBishopAttacker(pos, square, side);
+    if (attacker != null_move)
+    {
+      return attacker;
+    }
+
+    attacker = MoveGenerator::findRookAttacker(pos, square, side);
+    if (attacker != null_move)
+    {
+      return attacker;
+    }
+
+    attacker = MoveGenerator::findQueenAttacker(pos, square, side);
+    if (attacker != null_move)
+    {
+      return attacker;
+    }
+
+    return MoveGenerator::findKingAttacker(pos, square, side);
   }
 
   int Engine::see(Position& pos, int square)

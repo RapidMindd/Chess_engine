@@ -37,6 +37,13 @@ namespace chess
     static bool isSquareAttacked(const Position& pos, Square square);
     static bool isSquareAttackedQuick(const Position& pos, Square square, bool byWhite);
 
+    static Move findPawnAttacker(const Position& pos, int square, int side);
+    static Move findKnightAttacker(const Position& pos, int square, int side);
+    static Move findBishopAttacker(const Position& pos, int square, int side);
+    static Move findRookAttacker(const Position& pos, int square, int side);
+    static Move findQueenAttacker(const Position& pos, int square, int side);
+    static Move findKingAttacker(const Position& pos, int square, int side);
+
     static bool isMate(const Position& pos);
     static bool isCheck(const Position& pos);
     static bool isStaleMate(const Position& pos);

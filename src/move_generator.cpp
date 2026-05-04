@@ -588,6 +588,309 @@ namespace chess
     return false;
   }
 
+  Move MoveGenerator::findPawnAttacker(const Position& pos, int square, int side)
+  {
+    const int row = square / 8;
+    const int col = square % 8;
+    const int pawn = WHITE_PAWN * (side > 0 ? 1 : -1);
+
+    if (side == 1)
+    {
+      if (row > 0 && col > 0 && pos.getPiece(square - 9) == pawn)
+      {
+        return Move{static_cast< Square >(square - 9), static_cast< Square >(square)};
+      }
+      if (row > 0 && col < 7 && pos.getPiece(square - 7) == pawn)
+      {
+        return Move{static_cast< Square >(square - 7), static_cast< Square >(square)};
+      }
+    }
+    else
+    {
+      if (row < 7 && col > 0 && pos.getPiece(square + 7) == pawn)
+      {
+        return Move{static_cast< Square >(square + 7), static_cast< Square >(square)};
+      }
+      if (row < 7 && col < 7 && pos.getPiece(square + 9) == pawn)
+      {
+        return Move{static_cast< Square >(square + 9), static_cast< Square >(square)};
+      }
+    }
+
+    return null_move;
+  }
+
+  Move MoveGenerator::findKnightAttacker(const Position& pos, int square, int side)
+  {
+    const int row = square / 8;
+    const int col = square % 8;
+    const int knight = WHITE_KNIGHT * (side > 0 ? 1 : -1);
+    const int row_offset[8] = {2, 1, -1, -2, -2, -1, 1, 2};
+    const int col_offset[8] = {1, 2, 2, 1, -1, -2, -2, -1};
+
+    for (int i = 0; i < 8; ++i)
+    {
+      int cur_row = row + row_offset[i];
+      int cur_col = col + col_offset[i];
+      if (cur_row >= 0 && cur_row < 8 && cur_col >= 0 && cur_col < 8)
+      {
+        int from = cur_row * 8 + cur_col;
+        if (pos.getPiece(from) == knight)
+        {
+          return Move{static_cast< Square >(from), static_cast< Square >(square)};
+        }
+      }
+    }
+
+    return null_move;
+  }
+
+  Move MoveGenerator::findBishopAttacker(const Position& pos, int square, int side)
+  {
+    const int bishop = WHITE_BISHOP * (side > 0 ? 1 : -1);
+
+    // вверх вправо
+    int col = (square % 8) + 1;
+    int from = square + 9;
+    while (8 - col > 0 && from <= H8 && pos.getPiece(from) == EMPTY)
+    {
+      from += 9;
+      ++col;
+    }
+    if (8 - col > 0 && from <= H8 && pos.getPiece(from) == bishop)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вниз вправо
+    col = (square % 8) + 1;
+    from = square - 7;
+    while (8 - col > 0 && from >= A1 && pos.getPiece(from) == EMPTY)
+    {
+      from -= 7;
+      ++col;
+    }
+    if (8 - col > 0 && from >= A1 && pos.getPiece(from) == bishop)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вниз влево
+    col = (square % 8) - 1;
+    from = square - 9;
+    while (col >= 0 && from >= A1 && pos.getPiece(from) == EMPTY)
+    {
+      from -= 9;
+      --col;
+    }
+    if (col >= 0 && from >= A1 && pos.getPiece(from) == bishop)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вверх влево
+    col = (square % 8) - 1;
+    from = square + 7;
+    while (col >= 0 && from <= H8 && pos.getPiece(from) == EMPTY)
+    {
+      from += 7;
+      --col;
+    }
+    if (col >= 0 && from <= H8 && pos.getPiece(from) == bishop)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    return null_move;
+  }
+
+  Move MoveGenerator::findRookAttacker(const Position& pos, int square, int side)
+  {
+    const int rook = WHITE_ROOK * (side > 0 ? 1 : -1);
+
+    // вверх
+    int from = square + 8;
+    while (from <= H8 && pos.getPiece(from) == EMPTY)
+    {
+      from += 8;
+    }
+    if (from <= H8 && pos.getPiece(from) == rook)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вниз
+    from = square - 8;
+    while (from >= A1 && pos.getPiece(from) == EMPTY)
+    {
+      from -= 8;
+    }
+    if (from >= A1 && pos.getPiece(from) == rook)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вправо
+    int col = (square % 8) + 1;
+    from = square + 1;
+    while (8 - col > 0 && pos.getPiece(from) == EMPTY)
+    {
+      ++from;
+      ++col;
+    }
+    if (8 - col > 0 && pos.getPiece(from) == rook)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // влево
+    col = (square % 8) - 1;
+    from = square - 1;
+    while (col >= 0 && pos.getPiece(from) == EMPTY)
+    {
+      --from;
+      --col;
+    }
+    if (col >= 0 && pos.getPiece(from) == rook)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    return null_move;
+  }
+
+  Move MoveGenerator::findQueenAttacker(const Position& pos, int square, int side)
+  {
+    const int queen = WHITE_QUEEN * (side > 0 ? 1 : -1);
+
+    // вверх
+    int from = square + 8;
+    while (from <= H8 && pos.getPiece(from) == EMPTY)
+    {
+      from += 8;
+    }
+    if (from <= H8 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вниз
+    from = square - 8;
+    while (from >= A1 && pos.getPiece(from) == EMPTY)
+    {
+      from -= 8;
+    }
+    if (from >= A1 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вправо
+    int col = (square % 8) + 1;
+    from = square + 1;
+    while (8 - col > 0 && pos.getPiece(from) == EMPTY)
+    {
+      ++from;
+      ++col;
+    }
+    if (8 - col > 0 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // влево
+    col = (square % 8) - 1;
+    from = square - 1;
+    while (col >= 0 && pos.getPiece(from) == EMPTY)
+    {
+      --from;
+      --col;
+    }
+    if (col >= 0 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вверх вправо
+    col = (square % 8) + 1;
+    from = square + 9;
+    while (8 - col > 0 && from <= H8 && pos.getPiece(from) == EMPTY)
+    {
+      from += 9;
+      ++col;
+    }
+    if (8 - col > 0 && from <= H8 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вниз вправо
+    col = (square % 8) + 1;
+    from = square - 7;
+    while (8 - col > 0 && from >= A1 && pos.getPiece(from) == EMPTY)
+    {
+      from -= 7;
+      ++col;
+    }
+    if (8 - col > 0 && from >= A1 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вниз влево
+    col = (square % 8) - 1;
+    from = square - 9;
+    while (col >= 0 && from >= A1 && pos.getPiece(from) == EMPTY)
+    {
+      from -= 9;
+      --col;
+    }
+    if (col >= 0 && from >= A1 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    // вверх влево
+    col = (square % 8) - 1;
+    from = square + 7;
+    while (col >= 0 && from <= H8 && pos.getPiece(from) == EMPTY)
+    {
+      from += 7;
+      --col;
+    }
+    if (col >= 0 && from <= H8 && pos.getPiece(from) == queen)
+    {
+      return Move{static_cast< Square >(from), static_cast< Square >(square)};
+    }
+
+    return null_move;
+  }
+
+  Move MoveGenerator::findKingAttacker(const Position& pos, int square, int side)
+  {
+    const int row = square / 8;
+    const int col = square % 8;
+    const int king = WHITE_KING * (side > 0 ? 1 : -1);
+    const int row_offset[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+    const int col_offset[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+
+    for (int i = 0; i < 8; ++i)
+    {
+      int cur_row = row + row_offset[i];
+      int cur_col = col + col_offset[i];
+      if (cur_row >= 0 && cur_row < 8 && cur_col >= 0 && cur_col < 8)
+      {
+        int from = cur_row * 8 + cur_col;
+        if (pos.getPiece(from) == king)
+        {
+          return Move{static_cast< Square >(from), static_cast< Square >(square)};
+        }
+      }
+    }
+
+    return null_move;
+  }
+
   void MoveGenerator::generateRookCaptures(const Position& pos, Square square, MoveArray& moves)
   {
     const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
