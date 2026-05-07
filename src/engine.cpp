@@ -167,40 +167,49 @@ namespace chess
       }
       return {null_move,0};
     }
-    Move move;
-    int eval = MIN;
-    int alpha = MIN;
-    UndoInfo undo;
-    rateMoves(moves, pos);
-    for (int i = 0; i < moves.size(); ++i)
+    Move best_move = null_move;
+    int eval = 0;
+    for (int cur_depth = 1; cur_depth <= depth; ++cur_depth)
     {
-      MvBestMoveToBeg(moves, i);
-      uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
-      pos.makeMove(moves.get(i), undo);
-      // uint64_t hash = zobristHash(pos);
-      int cur_eval = -negamax(pos, depth - 1, MIN, -alpha, 0, search_nodes, hash);
-      if (cur_eval > eval)
+      eval = MIN;
+      int alpha = MIN;
+      UndoInfo undo;
+      rateMoves(moves, pos, null_move, best_move);
+      for (int i = 0; i < moves.size(); ++i)
       {
-        eval = cur_eval;
-        move = moves.get(i);
-        alpha = eval;
+        MvBestMoveToBeg(moves, i);
+        uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
+        pos.makeMove(moves.get(i), undo);
+        int cur_eval = -negamax(pos, cur_depth - 1, MIN, -alpha, 0, search_nodes, hash);
+        if (cur_eval > eval)
+        {
+          eval = cur_eval;
+          best_move = moves.get(i);
+          alpha = eval;
+        }
+        pos.undoMove(moves.get(i), undo);
       }
-      pos.undoMove(moves.get(i), undo);
     }
-    return {move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
+    return {best_move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
   }
 
-  void Engine::rateMoves(MoveArray& moves, Position& pos, const Move& tt_move)
+  void Engine::rateMoves(MoveArray& moves, Position& pos, const Move& tt_move, const Move& prev_best)
   {
     for (int i = 0; i < moves.size(); ++i)
     {
-      rateMove(moves.moves_[i], pos, tt_move);
+      rateMove(moves.moves_[i], pos, tt_move, prev_best);
     }
   }
 
-  void Engine::rateMove(Move& move, Position& pos, const Move& tt_move)
+  void Engine::rateMove(Move& move, Position& pos, const Move& tt_move, const Move& prev_best)
   {
     int score = 0;
+
+    if (move == prev_best)
+    {
+      move.score_ = 200000;
+      return;
+    }
 
     if (move == tt_move)
     {
