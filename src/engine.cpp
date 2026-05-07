@@ -28,11 +28,11 @@ namespace chess
         }
         else if (entry.type_ == LOWER_BOUND && entry.eval_ >= beta)
         {
-          return beta;
+          return entry.eval_;
         }
         else if (entry.type_ == UPPER_BOUND && entry.eval_ <= alpha)
         {
-          return alpha;
+          return entry.eval_;
         }
       }
       tt_move = entry.bestMove_;
@@ -168,29 +168,59 @@ namespace chess
       return {null_move,0};
     }
     Move best_move = null_move;
-    int eval = 0;
+    int best_eval = 0;
     for (int cur_depth = 1; cur_depth <= depth; ++cur_depth)
     {
-      eval = MIN;
-      int alpha = MIN;
-      UndoInfo undo;
-      rateMoves(moves, pos, null_move, best_move);
-      for (int i = 0; i < moves.size(); ++i)
+      int eval = 0;
+
+      int window = 50;
+      int alpha = cur_depth <= 4 ? MIN : best_eval - 50;
+      int beta = cur_depth <= 4 ? -MIN : best_eval + 50;
+      while (true)
       {
-        MvBestMoveToBeg(moves, i);
-        uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
-        pos.makeMove(moves.get(i), undo);
-        int cur_eval = -negamax(pos, cur_depth - 1, MIN, -alpha, 0, search_nodes, hash);
-        if (cur_eval > eval)
+        eval = MIN;
+        const int alpha_orig = alpha;
+        int search_alpha = alpha;
+        Move cur_best = best_move;
+        UndoInfo undo;
+        rateMoves(moves, pos, null_move, best_move);
+        for (int i = 0; i < moves.size(); ++i)
         {
-          eval = cur_eval;
-          best_move = moves.get(i);
-          alpha = eval;
+          MvBestMoveToBeg(moves, i);
+          uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
+          pos.makeMove(moves.get(i), undo);
+          int cur_eval = -negamax(pos, cur_depth - 1, -beta, -search_alpha, 0, search_nodes, hash);
+          if (cur_eval > eval)
+          {
+            eval = cur_eval;
+            cur_best = moves.get(i);
+            search_alpha = eval;
+          }
+          pos.undoMove(moves.get(i), undo);
+          if (search_alpha >= beta)
+          {
+            break;
+          }
         }
-        pos.undoMove(moves.get(i), undo);
+
+        if (eval <= alpha_orig)
+        {
+          alpha -= window;
+        }
+        else if (eval >= beta)
+        {
+          beta += window;
+        }
+        else
+        {
+          best_move = cur_best;
+          break;
+        }
+        window *= 2;
       }
+      best_eval = eval;
     }
-    return {best_move, (pos.isWhiteToMove() ? eval : -eval) / 100.0};
+    return {best_move, (pos.isWhiteToMove() ? best_eval : -best_eval) / 100.0};
   }
 
   void Engine::rateMoves(MoveArray& moves, Position& pos, const Move& tt_move, const Move& prev_best)
