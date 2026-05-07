@@ -178,32 +178,11 @@ namespace chess
       int beta = cur_depth <= 4 ? -MIN : best_eval + 50;
       while (true)
       {
-        eval = MIN;
-        const int alpha_orig = alpha;
-        int search_alpha = alpha;
-        Move cur_best = best_move;
-        UndoInfo undo;
-        rateMoves(moves, pos, null_move, best_move);
-        for (int i = 0; i < moves.size(); ++i)
-        {
-          MvBestMoveToBeg(moves, i);
-          uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
-          pos.makeMove(moves.get(i), undo);
-          int cur_eval = -negamax(pos, cur_depth - 1, -beta, -search_alpha, 0, search_nodes, hash);
-          if (cur_eval > eval)
-          {
-            eval = cur_eval;
-            cur_best = moves.get(i);
-            search_alpha = eval;
-          }
-          pos.undoMove(moves.get(i), undo);
-          if (search_alpha >= beta)
-          {
-            break;
-          }
-        }
+        std::pair< Move, int > result = searchRoot(pos, moves, init_hash,
+          cur_depth, alpha, beta, search_nodes, best_move);
+        eval = result.second;
 
-        if (eval <= alpha_orig)
+        if (eval <= alpha)
         {
           alpha -= window;
         }
@@ -213,7 +192,7 @@ namespace chess
         }
         else
         {
-          best_move = cur_best;
+          best_move = result.first;
           break;
         }
         window *= 2;
@@ -221,6 +200,38 @@ namespace chess
       best_eval = eval;
     }
     return {best_move, (pos.isWhiteToMove() ? best_eval : -best_eval) / 100.0};
+  }
+
+  std::pair< Move, int > Engine::searchRoot(Position& pos, MoveArray& moves, uint64_t init_hash,
+    int depth, int alpha, int beta, SearchNodes& nodes, const Move& prev_best)
+  {
+    int eval = MIN;
+    int search_alpha = alpha;
+    Move best_move = prev_best;
+    UndoInfo undo;
+
+    rateMoves(moves, pos, null_move, prev_best);
+    for (int i = 0; i < moves.size(); ++i)
+    {
+      MvBestMoveToBeg(moves, i);
+      uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
+      pos.makeMove(moves.get(i), undo);
+      int cur_eval = -negamax(pos, depth - 1, -beta, -search_alpha, 0, nodes, hash);
+      if (cur_eval > eval)
+      {
+        eval = cur_eval;
+        best_move = moves.get(i);
+        search_alpha = eval;
+      }
+      pos.undoMove(moves.get(i), undo);
+
+      if (search_alpha >= beta)
+      {
+        break;
+      }
+    }
+
+    return {best_move, eval};
   }
 
   void Engine::rateMoves(MoveArray& moves, Position& pos, const Move& tt_move, const Move& prev_best)
