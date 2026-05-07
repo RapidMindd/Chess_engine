@@ -1,13 +1,40 @@
 #include <iostream>
 #include <limits>
+#include <cctype>
 #include "position.hpp"
 #include "move.hpp"
 #include "move_generator.hpp"
 #include "engine.hpp"
 
-int main()
+int main(int argc, char** argv)
 {
   using namespace chess;
+
+  const int default_depth = 6;
+  int depth = 0;
+  if (argc == 1)
+  {
+    depth = default_depth;
+  }
+  else if (argc > 2)
+  {
+    std::cerr << "Invalid arguments\n";
+    return 1;
+  }
+  else
+  {
+    int i = 0;
+    while (argv[1][i] != '\0')
+    {
+      if (!std::isdigit(argv[1][i]) || i > 1)
+      {
+        std::cerr << "Invalid arguments\n";
+        return 1;
+      }
+      depth = depth * 10 + (argv[1][i] - '0');
+      ++i;
+    }
+  }
 
   UndoInfo undo;
   Position pos;
@@ -40,7 +67,7 @@ int main()
       std::cout << e.what() << "\n";
       continue;
     }
-    auto ans =  engine.findBestMove(pos, 6);
+    auto ans =  engine.findBestMove(pos, depth);
     pos.makeMove(ans.first, undo);
     pos.print();
     std::cout << "Eval: " << ans.second << "\n";
