@@ -382,15 +382,37 @@ namespace chess
 
   int Engine::see(Position& pos, int square)
   {
-    Move attack = leastValuableAttacker(pos, square);
-    if (attack == null_move) return 0;
+    constexpr int max_exchanges = 32;
+    Move attacks[max_exchanges];
+    UndoInfo undo[max_exchanges];
+    int captured_values[max_exchanges];
+    int depth = 0;
 
-    int captured = weights[std::abs(pos.getPiece(square))];
-    UndoInfo undo;
+    while (depth < max_exchanges)
+    {
+      Move attack = leastValuableAttacker(pos, square);
+      if (attack == null_move)
+      {
+        break;
+      }
 
-    pos.makeMove(attack, undo);
-    int value = std::max(0, captured - see(pos, square));
-    pos.undoMove(attack, undo);
+      attacks[depth] = attack;
+      captured_values[depth] = weights[std::abs(pos.getPiece(square))];
+      pos.makeMove(attack, undo[depth]);
+      ++depth;
+    }
+
+    int value = 0;
+    for (int i = depth - 1; i >= 0; --i)
+    {
+      int current_value = captured_values[i] - value;
+      value = current_value > 0 ? current_value : 0;
+    }
+
+    for (int i = depth - 1; i >= 0; --i)
+    {
+      pos.undoMove(attacks[i], undo[i]);
+    }
 
     return value;
   }
