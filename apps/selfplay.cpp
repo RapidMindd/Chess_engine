@@ -39,7 +39,7 @@ int main(int argc, char** argv)
   Position pos;
   pos.setInitial();
   int moves_without_activity = 0;
-  for (int i = 0; i < 100; ++i)
+  for (int i = 0; i < 200; ++i)
   {
     auto next = engine.findBestMove(pos, depth);
     if (next.first == null_move)

@@ -43,15 +43,8 @@ namespace chess
       return quiescence(pos, alpha, beta, ply, nodes);
     }
 
-    MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
-    if (moves.empty())
-    {
-      if (MoveGenerator{}.isCheck(pos))
-      {
-        return -MATE + ply;
-      }
-      return 0;
-    }
+    MoveGenerator gen;
+    MoveArray moves = gen.generatePseudoLegalMoves(pos);
 
     rateMoves(moves, pos, tt_move);
 
@@ -59,13 +52,20 @@ namespace chess
     int eval = MIN;
     UndoInfo undo;
     Move best = null_move;
+    bool side = !pos.isWhiteToMove();
+    bool no_moves = true;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
-      ++nodes.nnodes;
       uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      // uint64_t cur_hash = zobristHash(pos);
+      if (gen.isSquareAttackedQuick(pos, static_cast< Square >(pos.getOppositeColourKingSquare()), side))
+      {
+        pos.undoMove(moves.get(i), undo);
+        continue;
+      }
+      no_moves = false;
+      ++nodes.nnodes;
       int curr_eval = -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash);
       if (curr_eval > eval)
       {
@@ -79,6 +79,15 @@ namespace chess
       {
         break;
       }
+    }
+
+    if (no_moves)
+    {
+      if (gen.isCheck(pos))
+      {
+        return -MATE + ply;
+      }
+      return 0;
     }
 
     TTEntryType type;
@@ -107,13 +116,10 @@ namespace chess
 
     bool isActive = 0;
 
-    if (MoveGenerator{}.isCheck(pos))
+    MoveGenerator gen;
+    if (gen.isCheck(pos))
     {
-      moves = MoveGenerator{}.generateLegalMoves(pos);
-      if (moves.empty())
-      {
-        return -MATE + ply;
-      }
+      moves = gen.generatePseudoLegalMoves(pos);
     }
 
     else
@@ -125,12 +131,14 @@ namespace chess
         return beta;
       }
 
-      moves = MoveGenerator{}.generateActiveMoves(pos);
+      gen.generatePseudoLegalActiveMoves(pos, moves);
       isActive = 1;
     }
 
     isActive ? rateCaptures(moves, pos) : rateMoves(moves, pos);
     int eval = MIN;
+    bool side = !pos.isWhiteToMove();
+    bool no_moves = true;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
@@ -138,8 +146,14 @@ namespace chess
       {
         break;
       }
-      ++nodes.qnodes;
       pos.makeMove(moves.get(i), undo);
+      if (gen.isSquareAttackedQuick(pos, static_cast< Square >(pos.getOppositeColourKingSquare()), side))
+      {
+        pos.undoMove(moves.get(i), undo);
+        continue;
+      }
+      no_moves = false;
+      ++nodes.qnodes;
       eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
       pos.undoMove(moves.get(i), undo);
 
@@ -150,6 +164,11 @@ namespace chess
       }
     }
 
+    if (no_moves && !isActive)
+    {
+      return -MATE + ply;
+    }
+
     return alpha;
   }
 
@@ -158,10 +177,11 @@ namespace chess
     SearchNodes local_nodes;
     SearchNodes& search_nodes = nodes ? *nodes : local_nodes;
     uint64_t init_hash = zobristHash(pos);
-    MoveArray moves = MoveGenerator{}.generateLegalMoves(pos);
+    MoveGenerator gen;
+    MoveArray moves = gen.generateLegalMoves(pos);
     if (moves.empty())
     {
-      if (MoveGenerator{}.isCheck(pos))
+      if (gen.isCheck(pos))
       {
         return {null_move,-MATE};
       }
@@ -206,7 +226,6 @@ namespace chess
     int depth, int alpha, int beta, SearchNodes& nodes, const Move& prev_best)
   {
     int eval = MIN;
-    int search_alpha = alpha;
     Move best_move = prev_best;
     UndoInfo undo;
 
@@ -216,16 +235,16 @@ namespace chess
       MvBestMoveToBeg(moves, i);
       uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
-      int cur_eval = -negamax(pos, depth - 1, -beta, -search_alpha, 0, nodes, hash);
+      int cur_eval = -negamax(pos, depth - 1, -beta, -alpha, 0, nodes, hash);
       if (cur_eval > eval)
       {
         eval = cur_eval;
         best_move = moves.get(i);
-        search_alpha = eval;
+        alpha = eval;
       }
       pos.undoMove(moves.get(i), undo);
 
-      if (search_alpha >= beta)
+      if (alpha >= beta)
       {
         break;
       }
