@@ -307,6 +307,49 @@ namespace tarasenko
   }
 
   ht_template
+  double ht_type::load_factor() const noexcept
+  {
+    return static_cast< double >(size_) / bucket_count();
+  }
+
+  ht_template
+  double ht_type::max_load_factor() const noexcept
+  {
+    return max_load_factor_;
+  }
+
+  ht_template
+  void ht_type::max_load_factor(double ml)
+  {
+    if (ml <= 0)
+    {
+      throw std::invalid_argument("bad load factor");
+    }
+    max_load_factor_ = ml;
+  }
+
+  ht_template
+  void ht_type::clear()
+  {
+    for (size_t i = 0; i < buckets_.getSize(); ++i)
+    {
+      buckets_[i].occupied = false;
+      buckets_[i].distance = 0;
+    }
+    size_ = 0;
+  }
+
+  ht_template
+  void ht_type::reserve(size_t new_capacity)
+  {
+    size_t required = static_cast< size_t >(new_capacity / max_load_factor_) + 1;
+    if (required > bucket_count())
+    {
+      rehash(required);
+    }
+  }
+
+  ht_template
   void ht_type::rehash(size_t new_bucket_count)
   {
     if (new_bucket_count == 0)
@@ -329,6 +372,15 @@ namespace tarasenko
   ht_template
   bool ht_type::insert(const std::pair< const Key, Value >& value)
   {
+    if (find(value.first) != end())
+    {
+      return false;
+    }
+    if (static_cast< double >(size_ + 1) / bucket_count() > max_load_factor_)
+    {
+      rehash(bucket_count() * 2);
+    }
+
     size_t index = hash_(value.first) % bucket_count();
     Bucket bucket(value.first, value.second, 0);
     while (true)
@@ -351,6 +403,30 @@ namespace tarasenko
       index = (index + 1) % bucket_count();
       ++bucket.distance;
     }
+  }
+
+  ht_template
+  size_t ht_type::erase(const Key& key)
+  {
+    ht_iterator it = find(key);
+    if (it == end())
+    {
+      return 0;
+    }
+
+    size_t index = it.index_;
+    size_t next = (index + 1) % bucket_count();
+    while (buckets_[next].occupied && buckets_[next].distance > 0)
+    {
+      buckets_[index] = buckets_[next];
+      --buckets_[index].distance;
+      index = next;
+      next = (next + 1) % bucket_count();
+    }
+    buckets_[index].occupied = false;
+    buckets_[index].distance = 0;
+    --size_;
+    return 1;
   }
 
   ht_template
@@ -407,7 +483,7 @@ namespace tarasenko
     ht_iterator it = find(key);
     if (it == end())
     {
-      throw std::out_of_range("RobinHoodTable::at");
+      throw std::out_of_range("key not found");
     }
     return it->second;
   }
@@ -418,7 +494,7 @@ namespace tarasenko
     ht_const_iterator it = find(key);
     if (it == end())
     {
-      throw std::out_of_range("RobinHoodTable::at");
+      throw std::out_of_range("key not found");
     }
     return it->second;
   }
