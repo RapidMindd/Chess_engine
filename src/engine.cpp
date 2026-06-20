@@ -76,6 +76,29 @@ namespace chess
     return 0;
   }
 
+  bool isQuietMove(Position& pos, const Move& move)
+  {
+    return pos.getPiece(move.to_) == EMPTY
+      && move.promotionPiece_ == EMPTY
+      && !move.isEnPassant_
+      && !move.isCastling_;
+  }
+
+  int getLMRReduction(int depth, int move_number)
+  {
+    int reduction = 1 + move_number / 4;
+    if (reduction > depth - 2)
+    {
+      reduction = depth - 2;
+    }
+    return reduction;
+  }
+
+  bool canReduceMove(Position& pos, const Move& move, int depth, int move_number)
+  {
+    return depth > 3 && move_number > 2 && isQuietMove(pos, move);
+  }
+
   int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash)
   {
     Move tt_move = null_move;
@@ -102,25 +125,34 @@ namespace chess
     Move best = null_move;
     bool side = !pos.isWhiteToMove();
     bool no_moves = true;
+    int move_number = 0;
     for (int i = 0; i < moves.size(); ++i)
     {
       MvBestMoveToBeg(moves, i);
-      uint64_t cur_hash = incrementZobristHash(hash, pos, moves.get(i));
-      pos.makeMove(moves.get(i), undo);
+      Move move = moves.get(i);
+      bool can_reduce = canReduceMove(pos, move, depth, move_number);
+      uint64_t cur_hash = incrementZobristHash(hash, pos, move);
+      pos.makeMove(move, undo);
       if (gen.isSquareAttackedQuick(pos, static_cast< Square >(pos.getOppositeColourKingSquare()), side))
       {
-        pos.undoMove(moves.get(i), undo);
+        pos.undoMove(move, undo);
         continue;
       }
       no_moves = false;
       ++nodes.nnodes;
-      int curr_eval = -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash);
+      int reduction = can_reduce ? getLMRReduction(depth, move_number) : 0;
+      int curr_eval = -negamax(pos, depth - 1 - reduction, -beta, -alpha, ply + 1, nodes, cur_hash);
+      if (reduction && curr_eval > alpha)
+      {
+        curr_eval = -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash);
+      }
       if (curr_eval > eval)
       {
         eval = curr_eval;
-        best = moves.get(i);
+        best = move;
       }
-      pos.undoMove(moves.get(i), undo);
+      pos.undoMove(move, undo);
+      ++move_number;
 
       alpha = std::max(alpha, eval);
       if (alpha >= beta)
