@@ -3,31 +3,30 @@
 
 namespace chess
 {
-  TranspositionTable::TranspositionTable()
-  {
-    uint64_t size = 1ULL << 22;
-    data_ = new TTEntry[size];
-    size_ = size;
-  }
+  TranspositionTable::TranspositionTable():
+    TranspositionTable(1ULL << 22)
+  {}
 
-  TranspositionTable::TranspositionTable(uint64_t size)
-  {
-    data_ = new TTEntry[size];
-    size_ = size;
-  }
-
-  TranspositionTable::~TranspositionTable()
-  {
-    delete[] data_;
-  }
+  TranspositionTable::TranspositionTable(uint64_t size):
+    data_(size)
+  {}
 
   void TranspositionTable::addEntry(TTEntry entry)
   {
-    data_[entry.key_ & (size_ - 1)] = entry;
+    if (!data_.insert({entry.key_, entry}))
+    {
+      data_.at(entry.key_) = entry;
+    }
   }
 
   TTEntry& TranspositionTable::getEntry(uint64_t key)
   {
-    return data_[key & (size_ - 1)];
+    auto it = data_.find(key);
+    if (it == data_.end())
+    {
+      empty_entry_ = TTEntry{};
+      return empty_entry_;
+    }
+    return it->second;
   }
 }

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "position.hpp"
 #include "move.hpp"
+#include "datastructures/robinHoodTable.hpp"
 
 namespace chess
 {
@@ -24,16 +25,23 @@ namespace chess
     Move bestMove_;
   };
 
+  struct TTKeyHash
+  {
+    size_t operator()(uint64_t key) const noexcept
+    {
+      return static_cast< size_t >(key);
+    }
+  };
+
   struct TranspositionTable
   {
   private:
-    TTEntry* data_;
-    uint64_t size_;
+    tarasenko::RobinHoodTable< uint64_t, TTEntry, TTKeyHash > data_;
+    TTEntry empty_entry_;
 
   public:
     TranspositionTable();
     TranspositionTable(uint64_t size);
-    ~TranspositionTable();
 
     void addEntry(TTEntry entry);
     TTEntry& getEntry(uint64_t key);
