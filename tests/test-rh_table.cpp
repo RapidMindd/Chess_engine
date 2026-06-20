@@ -61,6 +61,35 @@ BOOST_AUTO_TEST_CASE(find_empty)
   BOOST_CHECK(table.find(1) == table.end());
 }
 
+BOOST_AUTO_TEST_CASE(count)
+{
+  HTable table;
+  table.insert({1, 1});
+  BOOST_TEST(table.count(1) == 1ul);
+  BOOST_TEST(table.count(2) == 0ul);
+}
+
+BOOST_AUTO_TEST_CASE(at)
+{
+  HTable table;
+  table.insert({1, 1});
+  BOOST_TEST(table.at(1) == 1);
+}
+
+BOOST_AUTO_TEST_CASE(at_empty)
+{
+  HTable table;
+  BOOST_CHECK_THROW(table.at(1), std::out_of_range);
+}
+
+BOOST_AUTO_TEST_CASE(index_operator)
+{
+  HTable table;
+  table[1] = 10;
+  BOOST_TEST(table.size() == 1ul);
+  BOOST_TEST(table.at(1) == 10);
+}
+
 BOOST_AUTO_TEST_CASE(default_template_parameters)
 {
   RobinHoodTable< int, std::string > table;
