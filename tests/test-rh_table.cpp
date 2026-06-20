@@ -250,3 +250,70 @@ BOOST_AUTO_TEST_CASE(rehash_many_elems)
     BOOST_TEST(table.find(i)->second == i * 5);
   }
 }
+
+BOOST_AUTO_TEST_CASE(load_factor)
+{
+  HTable table(8);
+  table.insert({1, 1});
+  table.insert({2, 2});
+  BOOST_TEST(table.load_factor() == 0.25);
+}
+
+BOOST_AUTO_TEST_CASE(max_load_factor)
+{
+  HTable table;
+  BOOST_TEST(table.max_load_factor() == 0.75);
+  table.max_load_factor(0.5);
+  BOOST_TEST(table.max_load_factor() == 0.5);
+}
+
+BOOST_AUTO_TEST_CASE(reserve)
+{
+  HTable table(2);
+  table.insert({1, 1});
+  table.reserve(20);
+  BOOST_TEST(table.bucket_count() > 2ul);
+  BOOST_TEST(table.size() == 1ul);
+  BOOST_TEST(table.find(1)->second == 1);
+}
+
+BOOST_AUTO_TEST_CASE(table_clear)
+{
+  HTable table;
+  table.insert({1, 1});
+  table.insert({2, 2});
+  table.clear();
+  BOOST_TEST(table.empty());
+  BOOST_TEST(table.size() == 0ul);
+  BOOST_CHECK(table.find(1) == table.end());
+}
+
+BOOST_AUTO_TEST_CASE(erase)
+{
+  HTable table;
+  table.insert({1, 1});
+  BOOST_TEST(table.erase(1) == 1ul);
+  BOOST_TEST(table.size() == 0ul);
+  BOOST_CHECK(table.find(1) == table.end());
+}
+
+BOOST_AUTO_TEST_CASE(erase_missing)
+{
+  HTable table;
+  table.insert({1, 1});
+  BOOST_TEST(table.erase(2) == 0ul);
+  BOOST_TEST(table.size() == 1ul);
+}
+
+BOOST_AUTO_TEST_CASE(collision_erase)
+{
+  CollisionTable table(8);
+  table.insert({1, 10});
+  table.insert({2, 20});
+  table.insert({3, 30});
+  BOOST_TEST(table.erase(2) == 1ul);
+  BOOST_TEST(table.size() == 2ul);
+  BOOST_CHECK(table.find(2) == table.end());
+  BOOST_TEST(table.find(1)->second == 10);
+  BOOST_TEST(table.find(3)->second == 30);
+}
