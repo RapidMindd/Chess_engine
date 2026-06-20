@@ -225,6 +225,25 @@ namespace tarasenko
   }
 
   ht_template
+  ht_const_iterator& ht_const_iterator::operator++()
+  {
+    ++index_;
+    while (index_ < table_->buckets_.getSize() && !table_->buckets_[index_].occupied)
+    {
+      ++index_;
+    }
+    return *this;
+  }
+
+  ht_template
+  ht_const_iterator ht_const_iterator::operator++(int)
+  {
+    ht_const_iterator copy(*this);
+    ++(*this);
+    return copy;
+  }
+
+  ht_template
   bool ht_const_iterator::operator==(const ht_const_iterator& rhs) const noexcept
   {
     return table_ == rhs.table_ && index_ == rhs.index_;
@@ -397,15 +416,39 @@ namespace tarasenko
   }
 
   ht_template
+  ht_iterator ht_type::begin() noexcept
+  {
+    return ht_iterator(this, 0);
+  }
+
+  ht_template
   ht_iterator ht_type::end() noexcept
   {
     return ht_iterator(this, buckets_.getSize());
   }
 
   ht_template
+  ht_const_iterator ht_type::begin() const noexcept
+  {
+    return ht_const_iterator(this, 0);
+  }
+
+  ht_template
   ht_const_iterator ht_type::end() const noexcept
   {
     return ht_const_iterator(this, buckets_.getSize());
+  }
+
+  ht_template
+  ht_const_iterator ht_type::cbegin() const noexcept
+  {
+    return begin();
+  }
+
+  ht_template
+  ht_const_iterator ht_type::cend() const noexcept
+  {
+    return end();
   }
 
   #undef ht_template

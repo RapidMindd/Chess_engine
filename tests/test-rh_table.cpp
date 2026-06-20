@@ -117,3 +117,101 @@ BOOST_AUTO_TEST_CASE(collision_insert_and_find)
   BOOST_TEST(table.find(2)->second == 20);
   BOOST_TEST(table.find(3)->second == 30);
 }
+
+BOOST_AUTO_TEST_CASE(begin_empty)
+{
+  HTable table;
+  BOOST_CHECK(table.begin() == table.end());
+}
+
+BOOST_AUTO_TEST_CASE(dereference)
+{
+  HTable table;
+  table.insert({1, 2});
+  auto it = table.begin();
+  BOOST_CHECK(*it == std::make_pair(1, 2));
+  BOOST_TEST(it->first == 1);
+  BOOST_TEST(it->second == 2);
+}
+
+BOOST_AUTO_TEST_CASE(pre_increment)
+{
+  HTable table;
+  table.insert({1, 2});
+  auto it = table.begin();
+  BOOST_CHECK(++it == table.end());
+}
+
+BOOST_AUTO_TEST_CASE(post_increment)
+{
+  HTable table;
+  table.insert({1, 2});
+  auto it = table.begin();
+  BOOST_CHECK(it++ == table.begin());
+  BOOST_CHECK(it == table.end());
+}
+
+BOOST_AUTO_TEST_CASE(cycle_by_iterators)
+{
+  HTable table;
+  table.insert({1, 10});
+  table.insert({2, 20});
+  table.insert({3, 30});
+  int i = 0;
+  for (auto it = table.begin(); it != table.end(); ++it, ++i)
+  {
+    BOOST_TEST(it->second == it->first * 10);
+  }
+  BOOST_TEST(i == 3);
+}
+
+BOOST_AUTO_TEST_CASE(const_begin_empty)
+{
+  const HTable table;
+  BOOST_CHECK(table.cbegin() == table.cend());
+}
+
+BOOST_AUTO_TEST_CASE(const_dereference)
+{
+  HTable table;
+  table.insert({1, 2});
+  const HTable& ctable = table;
+  auto it = ctable.cbegin();
+  BOOST_CHECK(*it == std::make_pair(1, 2));
+  BOOST_TEST(it->first == 1);
+  BOOST_TEST(it->second == 2);
+}
+
+BOOST_AUTO_TEST_CASE(const_pre_increment)
+{
+  HTable table;
+  table.insert({1, 2});
+  const HTable& ctable = table;
+  auto it = ctable.cbegin();
+  BOOST_CHECK(++it == ctable.cend());
+}
+
+BOOST_AUTO_TEST_CASE(const_post_increment)
+{
+  HTable table;
+  table.insert({1, 2});
+  const HTable& ctable = table;
+  auto it = ctable.cbegin();
+  BOOST_CHECK(it++ == ctable.cbegin());
+  BOOST_CHECK(it == ctable.cend());
+}
+
+BOOST_AUTO_TEST_CASE(cycle_by_const_iterators)
+{
+  HTable table;
+  table.insert({1, 10});
+  table.insert({2, 20});
+  table.insert({3, 30});
+  const HTable& ctable = table;
+  int i = 0;
+  for (auto it = ctable.cbegin(); it != ctable.cend(); ++it, ++i)
+  {
+    BOOST_TEST(it->second == it->first * 10);
+  }
+  BOOST_TEST(i == 3);
+}
