@@ -14,28 +14,76 @@ namespace chess
   const int MIN = -30000;
   const int MATE = 29000;
 
+  bool useTTEntry(const TTEntry& entry, uint64_t hash, int depth, int alpha, int beta, Move& tt_move, int& eval)
+  {
+    if (!entry.used_ || entry.key_ != hash)
+    {
+      return false;
+    }
+
+    if (entry.depth_ >= depth)
+    {
+      if (entry.type_ == EXACT)
+      {
+        eval = entry.eval_;
+        return true;
+      }
+      else if (entry.type_ == LOWER_BOUND && entry.eval_ >= beta)
+      {
+        eval = entry.eval_;
+        return true;
+      }
+      else if (entry.type_ == UPPER_BOUND && entry.eval_ <= alpha)
+      {
+        eval = entry.eval_;
+        return true;
+      }
+    }
+    tt_move = entry.bestMove_;
+    return false;
+  }
+
+  TTEntryType getTTEntryType(int eval, int alpha_orig, int beta)
+  {
+    if (eval <= alpha_orig)
+    {
+      return UPPER_BOUND;
+    }
+    else if (eval >= beta)
+    {
+      return LOWER_BOUND;
+    }
+    return EXACT;
+  }
+
+  int pieceSquareDelta(Position& pos, const Move& move)
+  {
+    Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
+    int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;
+    switch (abs_piece)
+    {
+      case WHITE_KING:
+        return king_table[move.to_] - king_table[move.from_];
+      case WHITE_QUEEN:
+        return queen_table[move.to_] - queen_table[move.from_];
+      case WHITE_KNIGHT:
+        return knight_table[move.to_] - knight_table[move.from_];
+      case WHITE_BISHOP:
+        return bishop_table[move.to_] - bishop_table[move.from_];
+      case WHITE_PAWN:
+        return pawn_table[move.to_] - pawn_table[move.from_];
+    }
+    return 0;
+  }
+
   int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash)
   {
     Move tt_move = null_move;
     TTEntry entry = tt_.getEntry(hash);
-    if (entry.used_ && entry.key_ == hash)
+    int tt_eval = 0;
+    if (useTTEntry(entry, hash, depth, alpha, beta, tt_move, tt_eval))
     {
-      if (entry.depth_ >= depth)
-      {
-        if (entry.type_ == EXACT)
-        {
-          return entry.eval_;
-        }
-        else if (entry.type_ == LOWER_BOUND && entry.eval_ >= beta)
-        {
-          return entry.eval_;
-        }
-        else if (entry.type_ == UPPER_BOUND && entry.eval_ <= alpha)
-        {
-          return entry.eval_;
-        }
-      }
-      tt_move = entry.bestMove_;
+      return tt_eval;
     }
 
     if (depth == 0)
@@ -90,20 +138,7 @@ namespace chess
       return 0;
     }
 
-    TTEntryType type;
-    if (eval <= alpha_orig)
-    {
-      type = UPPER_BOUND;
-    }
-    else if (eval >= beta)
-    {
-      type = LOWER_BOUND;
-    }
-    else
-    {
-      type = EXACT;
-    }
-
+    TTEntryType type = getTTEntryType(eval, alpha_orig, beta);
     tt_.addEntry(TTEntry{hash, eval, depth, type, true, best});
 
     return eval;
@@ -305,26 +340,7 @@ namespace chess
       score += 12000 + std::abs(move.promotionPiece_);
     }
 
-    Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
-    int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;
-    switch (abs_piece)
-    {
-      case WHITE_KING:
-        score += king_table[move.to_] - king_table[move.from_];
-        break;
-      case WHITE_QUEEN:
-        score += queen_table[move.to_] - queen_table[move.from_];
-        break;
-      case WHITE_KNIGHT:
-        score += knight_table[move.to_] - knight_table[move.from_];
-        break;
-      case WHITE_BISHOP:
-        score += bishop_table[move.to_] - bishop_table[move.from_];
-        break;
-      case WHITE_PAWN:
-        score += pawn_table[move.to_] - pawn_table[move.from_];
-        break;
-    }
+    score += pieceSquareDelta(pos, move);
 
     move.score_ = score;
   }
@@ -360,26 +376,7 @@ namespace chess
       score += 10000 + weights[std::abs(to)] - weights[std::abs(pos.getPiece(move.from_))] / 8;
     }
 
-    Piece cur_piece = static_cast< Piece >(pos.getPiece(move.from_));
-    int abs_piece = cur_piece > 0 ? cur_piece : -cur_piece;
-    switch (abs_piece)
-    {
-      case WHITE_KING:
-        score += king_table[move.to_] - king_table[move.from_];
-        break;
-      case WHITE_QUEEN:
-        score += queen_table[move.to_] - queen_table[move.from_];
-        break;
-      case WHITE_KNIGHT:
-        score += knight_table[move.to_] - knight_table[move.from_];
-        break;
-      case WHITE_BISHOP:
-        score += bishop_table[move.to_] - bishop_table[move.from_];
-        break;
-      case WHITE_PAWN:
-        score += pawn_table[move.to_] - pawn_table[move.from_];
-        break;
-    }
+    score += pieceSquareDelta(pos, move);
 
     move.score_ = score;
   }
