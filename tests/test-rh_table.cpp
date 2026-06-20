@@ -215,3 +215,38 @@ BOOST_AUTO_TEST_CASE(cycle_by_const_iterators)
   }
   BOOST_TEST(i == 3);
 }
+
+BOOST_AUTO_TEST_CASE(rehash)
+{
+  HTable table;
+  table.insert({1, 1});
+  table.rehash(16);
+  BOOST_TEST(table.bucket_count() == 16ul);
+  BOOST_TEST(table.size() == 1ul);
+  BOOST_TEST(table.find(1)->second == 1);
+}
+
+BOOST_AUTO_TEST_CASE(rehash_empty)
+{
+  HTable table(4);
+  table.rehash(0);
+  BOOST_TEST(table.bucket_count() == 1ul);
+  BOOST_TEST(table.size() == 0ul);
+  BOOST_TEST(table.empty());
+}
+
+BOOST_AUTO_TEST_CASE(rehash_many_elems)
+{
+  HTable table(32);
+  for (int i = 0; i < 20; ++i)
+  {
+    table.insert({i, i * 5});
+  }
+  table.rehash(64);
+  BOOST_TEST(table.bucket_count() == 64ul);
+  BOOST_TEST(table.size() == 20ul);
+  for (int i = 0; i < 20; ++i)
+  {
+    BOOST_TEST(table.find(i)->second == i * 5);
+  }
+}

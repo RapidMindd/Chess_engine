@@ -307,6 +307,26 @@ namespace tarasenko
   }
 
   ht_template
+  void ht_type::rehash(size_t new_bucket_count)
+  {
+    if (new_bucket_count == 0)
+    {
+      new_bucket_count = 1;
+    }
+
+    Vector< Bucket > old_buckets(buckets_);
+    buckets_ = Vector< Bucket >(new_bucket_count, Bucket());
+    size_ = 0;
+    for (size_t i = 0; i < old_buckets.getSize(); ++i)
+    {
+      if (old_buckets[i].occupied)
+      {
+        insert({old_buckets[i].data.first, old_buckets[i].data.second});
+      }
+    }
+  }
+
+  ht_template
   bool ht_type::insert(const std::pair< const Key, Value >& value)
   {
     size_t index = hash_(value.first) % bucket_count();
