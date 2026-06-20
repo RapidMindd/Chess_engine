@@ -4,6 +4,7 @@
 #include <functional>
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 #include "hmac_hash.hpp"
 #include "vector.hpp"
@@ -189,6 +190,53 @@ namespace tarasenko
   }
 
   ht_template
+  ht_const_iterator::RobinHoodConstIterator() noexcept:
+    table_(nullptr),
+    index_(0)
+  {}
+
+  ht_template
+  ht_const_iterator::RobinHoodConstIterator(const ht_iterator& rhs) noexcept:
+    table_(rhs.table_),
+    index_(rhs.index_)
+  {}
+
+  ht_template
+  ht_const_iterator::RobinHoodConstIterator(const ht_type* table, size_t index) noexcept:
+    table_(table),
+    index_(index)
+  {
+    while (table_ && index_ < table_->buckets_.getSize() && !table_->buckets_[index_].occupied)
+    {
+      ++index_;
+    }
+  }
+
+  ht_template
+  const std::pair< Key, Value >& ht_const_iterator::operator*() const
+  {
+    return table_->buckets_[index_].data;
+  }
+
+  ht_template
+  const std::pair< Key, Value >* ht_const_iterator::operator->() const
+  {
+    return std::addressof(table_->buckets_[index_].data);
+  }
+
+  ht_template
+  bool ht_const_iterator::operator==(const ht_const_iterator& rhs) const noexcept
+  {
+    return table_ == rhs.table_ && index_ == rhs.index_;
+  }
+
+  ht_template
+  bool ht_const_iterator::operator!=(const ht_const_iterator& rhs) const noexcept
+  {
+    return !(*this == rhs);
+  }
+
+  ht_template
   ht_type::Bucket::Bucket():
     data(),
     distance(0),
@@ -288,9 +336,76 @@ namespace tarasenko
   }
 
   ht_template
+  ht_const_iterator ht_type::find(const Key& key) const noexcept
+  {
+    if (bucket_count() == 0)
+    {
+      return end();
+    }
+    size_t index = hash_(key) % bucket_count();
+    size_t distance = 0;
+    while (buckets_[index].occupied && buckets_[index].distance >= distance)
+    {
+      if (equal_(buckets_[index].data.first, key))
+      {
+        return ht_const_iterator(this, index);
+      }
+      index = (index + 1) % bucket_count();
+      ++distance;
+    }
+    return end();
+  }
+
+  ht_template
+  size_t ht_type::count(const Key& key) const
+  {
+    return find(key) == end() ? 0 : 1;
+  }
+
+  ht_template
+  Value& ht_type::at(const Key& key)
+  {
+    ht_iterator it = find(key);
+    if (it == end())
+    {
+      throw std::out_of_range("RobinHoodTable::at");
+    }
+    return it->second;
+  }
+
+  ht_template
+  const Value& ht_type::at(const Key& key) const
+  {
+    ht_const_iterator it = find(key);
+    if (it == end())
+    {
+      throw std::out_of_range("RobinHoodTable::at");
+    }
+    return it->second;
+  }
+
+  ht_template
+  Value& ht_type::operator[](const Key& key)
+  {
+    ht_iterator it = find(key);
+    if (it == end())
+    {
+      insert({key, Value()});
+      it = find(key);
+    }
+    return it->second;
+  }
+
+  ht_template
   ht_iterator ht_type::end() noexcept
   {
     return ht_iterator(this, buckets_.getSize());
+  }
+
+  ht_template
+  ht_const_iterator ht_type::end() const noexcept
+  {
+    return ht_const_iterator(this, buckets_.getSize());
   }
 
   #undef ht_template
