@@ -6,7 +6,8 @@
 namespace chess
 {
   Game::Game():
-    currentMove_(0)
+    currentMove_(0),
+    flipped_(false)
   {
     startPosition_.setInitial();
     currentPosition_ = startPosition_;
@@ -15,7 +16,8 @@ namespace chess
   Game::Game(const Position& start):
     startPosition_(start),
     currentPosition_(start),
-    currentMove_(0)
+    currentMove_(0),
+    flipped_(false)
   {}
 
   const Position& Game::getPosition() const noexcept
@@ -82,8 +84,13 @@ namespace chess
     ++currentMove_;
   }
 
+  void Game::flip()
+  {
+    flipped_ = !flipped_;
+  }
+
   void Game::print(std::ostream& out) const
   {
-    currentPosition_.print(out);
+    currentPosition_.print(out, flipped_);
   }
 }

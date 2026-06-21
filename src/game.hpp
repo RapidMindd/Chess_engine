@@ -30,6 +30,7 @@ namespace chess
     void undoMove();
     void prevMove();
     void nextMove();
+    void flip();
 
     void print(std::ostream& out) const;
 
@@ -38,6 +39,7 @@ namespace chess
     Position currentPosition_;
     tarasenko::Vector< GameMove > moves_;
     size_t currentMove_;
+    bool flipped_;
   };
 }
 

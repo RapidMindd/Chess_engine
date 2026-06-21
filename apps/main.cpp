@@ -2,6 +2,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "datastructures/robinHoodTable.hpp"
 #include "game.hpp"
@@ -24,6 +25,39 @@ std::string readName(std::istream& in)
   return name;
 }
 
+bool isSpace(char c)
+{
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+std::pair< std::string, std::string > readFenAndName(std::istream& in)
+{
+  std::string line;
+  std::getline(in, line);
+  size_t end = line.find_last_not_of(" \t\r\n");
+  if (end == std::string::npos)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  size_t name_start = end;
+  while (name_start > 0 && !isSpace(line[name_start - 1]))
+  {
+    --name_start;
+  }
+  if (name_start == 0)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  size_t fen_end = line.find_last_not_of(" \t\r\n", name_start - 1);
+  if (fen_end == std::string::npos)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  std::string fen = line.substr(0, fen_end + 1);
+  std::string name = line.substr(name_start, end - name_start + 1);
+  return {fen, name};
+}
+
 void newGame(std::istream& in, std::ostream&, games_t& games)
 {
   std::string name = readName(in);
@@ -32,6 +66,18 @@ void newGame(std::istream& in, std::ostream&, games_t& games)
     throw std::logic_error("board with this name already exist");
   }
   games.insert({name, chess::Game()});
+}
+
+void setFen(std::istream& in, std::ostream&, games_t& games)
+{
+  auto parsed = readFenAndName(in);
+  std::string fen = parsed.first;
+  std::string name = parsed.second;
+  if (games.count(name))
+  {
+    throw std::logic_error("board with this name already exist");
+  }
+  games.insert({name, chess::Game(chess::Position(fen.c_str()))});
 }
 
 void printGame(std::istream& in, std::ostream& out, games_t& games)
@@ -44,6 +90,16 @@ void printGame(std::istream& in, std::ostream& out, games_t& games)
   games.at(name).print(out);
 }
 
+void flipGame(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  if (games.count(name) == 0)
+  {
+    throw std::logic_error("no board with this name");
+  }
+  games.at(name).flip();
+}
+
 int main()
 {
   games_t games;
@@ -51,7 +107,9 @@ int main()
   using cmd_t = void(*)(std::istream&, std::ostream&, games_t&);
   tarasenko::RobinHoodTable< std::string, cmd_t > cmds;
   cmds["new"] = newGame;
+  cmds["set_fen"] = setFen;
   cmds["print"] = printGame;
+  cmds["flip"] = flipGame;
 
   std::string cmd;
   while (std::cin >> cmd)
@@ -69,7 +127,10 @@ int main()
       std::cout << "<INVALID COMMAND: " << e.what() << ">\n";
       auto toignore = std::numeric_limits< std::streamsize >::max();
       std::cin.clear();
-      std::cin.ignore(toignore, '\n');
+      if (std::cin.peek() == ' ' || std::cin.peek() == '\t')
+      {
+        std::cin.ignore(toignore, '\n');
+      }
     }
   }
 }
