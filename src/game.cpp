@@ -40,6 +40,11 @@ namespace chess
     return moves_.getSize();
   }
 
+  const Move& Game::getMove(size_t index) const
+  {
+    return moves_.at(index).move_;
+  }
+
   void Game::makeMove(const Move& move)
   {
     if (currentMove_ < moves_.getSize())

@@ -25,6 +25,7 @@ namespace chess
     const Position& getStartPosition() const noexcept;
     size_t getCurrentMove() const noexcept;
     size_t getMovesCount() const noexcept;
+    const Move& getMove(size_t index) const;
 
     void makeMove(const Move& move);
     void undoMove();

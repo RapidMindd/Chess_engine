@@ -5,6 +5,7 @@
 #include <sstream>
 #include <utility>
 
+#include "analyzer.hpp"
 #include "datastructures/robinHoodTable.hpp"
 #include "engine.hpp"
 #include "game.hpp"
@@ -309,6 +310,16 @@ void evaluate(std::istream& in, std::ostream& out, games_t& games)
   out << searchPosition(pos, params).second << "\n";
 }
 
+void analyze(std::istream& in, std::ostream& out, games_t& games)
+{
+  std::string name = readName(in);
+  chess::Game& game = getGame(games, name);
+
+  SearchParams params = readSearchParams(in);
+  chess::Analyzer analyzer(chess::getEvaluationCoefficients(params.strategy));
+  out << analyzer.analyze(game, params.depth, params.time_ms) << "\n";
+}
+
 int main()
 {
   games_t games;
@@ -325,6 +336,7 @@ int main()
   cmds["prev_move"] = prevMove;
   cmds["best_move"] = bestMove;
   cmds["evaluate"] = evaluate;
+  cmds["analyze"] = analyze;
 
   std::string cmd;
   while (std::cin >> cmd)
