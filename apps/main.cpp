@@ -6,6 +6,7 @@
 
 #include "datastructures/robinHoodTable.hpp"
 #include "game.hpp"
+#include "move_generator.hpp"
 
 using games_t = tarasenko::RobinHoodTable< std::string, chess::Game >;
 
@@ -58,6 +59,31 @@ std::pair< std::string, std::string > readFenAndName(std::istream& in)
   return {fen, name};
 }
 
+chess::Game& getGame(games_t& games, const std::string& name)
+{
+  if (games.count(name) == 0)
+  {
+    throw std::logic_error("no board with this name");
+  }
+  return games.at(name);
+}
+
+chess::Move readMove(std::istream& in)
+{
+  std::istream::sentry s(in);
+  if (!s)
+  {
+    throw std::logic_error("invalid move");
+  }
+  chess::Move move;
+  in >> move;
+  if (!in)
+  {
+    throw std::logic_error("invalid move");
+  }
+  return move;
+}
+
 void newGame(std::istream& in, std::ostream&, games_t& games)
 {
   std::string name = readName(in);
@@ -83,21 +109,47 @@ void setFen(std::istream& in, std::ostream&, games_t& games)
 void printGame(std::istream& in, std::ostream& out, games_t& games)
 {
   std::string name = readName(in);
-  if (games.count(name) == 0)
-  {
-    throw std::logic_error("no board with this name");
-  }
-  games.at(name).print(out);
+  getGame(games, name).print(out);
 }
 
 void flipGame(std::istream& in, std::ostream&, games_t& games)
 {
   std::string name = readName(in);
-  if (games.count(name) == 0)
+  getGame(games, name).flip();
+}
+
+void makeMove(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  chess::Game& game = getGame(games, name);
+  chess::Move move = readMove(in);
+  chess::MoveArray moves = chess::MoveGenerator::generateLegalMoves(game.getPosition());
+  try
   {
-    throw std::logic_error("no board with this name");
+    game.makeMove(chess::getMove(moves, move));
   }
-  games.at(name).flip();
+  catch (const std::exception&)
+  {
+    throw std::logic_error("invalid move");
+  }
+}
+
+void undoMove(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  getGame(games, name).undoMove();
+}
+
+void nextMove(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  getGame(games, name).nextMove();
+}
+
+void prevMove(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  getGame(games, name).prevMove();
 }
 
 int main()
@@ -110,6 +162,10 @@ int main()
   cmds["set_fen"] = setFen;
   cmds["print"] = printGame;
   cmds["flip"] = flipGame;
+  cmds["make_move"] = makeMove;
+  cmds["undo_move"] = undoMove;
+  cmds["next_move"] = nextMove;
+  cmds["prev_move"] = prevMove;
 
   std::string cmd;
   while (std::cin >> cmd)
