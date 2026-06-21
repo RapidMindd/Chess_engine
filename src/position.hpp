@@ -36,6 +36,9 @@ namespace chess
   struct Position
   {
   private:
+    static bool isPieceChar(char c) noexcept;
+    static bool isValidFen(const std::string& fen);
+
     Piece board_[64];
     bool whiteToMove_;
 
@@ -75,7 +78,7 @@ namespace chess
 
     Position getToggledSideToMovePosition() const;
 
-    void print(std::ostream& out = std::cout) const;
+    void print(std::ostream& out = std::cout, bool flipped = false) const;
 
     // для тестов
     void placePiece(int square, Piece piece);

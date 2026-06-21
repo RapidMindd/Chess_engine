@@ -3,9 +3,100 @@
 #include "piece.hpp"
 
 #include <sstream>
+#include <stdexcept>
 
 namespace chess
 {
+  bool Position::isPieceChar(char c) noexcept
+  {
+    return c == 'p' || c == 'n' || c == 'b' || c == 'r' || c == 'q' || c == 'k'
+      || c == 'P' || c == 'N' || c == 'B' || c == 'R' || c == 'Q' || c == 'K';
+  }
+
+  bool Position::isValidFen(const std::string& fen)
+  {
+    std::stringstream stream(fen);
+    std::string board;
+    std::string color;
+    std::string castling;
+    std::string enPassant;
+    stream >> board >> color >> castling >> enPassant;
+    if (!stream)
+    {
+      return false;
+    }
+
+    int row_count = 1;
+    int row_sum = 0;
+    int white_king = 0;
+    int black_king = 0;
+    for (size_t i = 0; i < board.size(); ++i)
+    {
+      char c = board[i];
+      if (c >= '1' && c <= '8')
+      {
+        row_sum += c - '0';
+      }
+      else if (isPieceChar(c))
+      {
+        ++row_sum;
+        if (c == 'K')
+        {
+          ++white_king;
+        }
+        if (c == 'k')
+        {
+          ++black_king;
+        }
+      }
+      else if (c == '/')
+      {
+        if (row_sum != 8)
+        {
+          return false;
+        }
+        row_sum = 0;
+        ++row_count;
+      }
+      else
+      {
+        return false;
+      }
+      if (row_sum > 8 || row_count > 8)
+      {
+        return false;
+      }
+    }
+    if (row_count != 8 || row_sum != 8 || white_king != 1 || black_king != 1)
+    {
+      return false;
+    }
+    if (color != "w" && color != "b")
+    {
+      return false;
+    }
+    if (castling != "-")
+    {
+      for (size_t i = 0; i < castling.size(); ++i)
+      {
+        char c = castling[i];
+        if (c != 'K' && c != 'Q' && c != 'k' && c != 'q')
+        {
+          return false;
+        }
+      }
+    }
+    if (enPassant != "-")
+    {
+      if (enPassant.size() != 2 || enPassant[0] < 'a' || enPassant[0] > 'h'
+        || enPassant[1] < '1' || enPassant[1] > '8')
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Position::Position()
   {
     clear();
@@ -48,6 +139,10 @@ namespace chess
 
   Position::Position(const char* FEN)
   {
+    if (!isValidFen(FEN))
+    {
+      throw std::logic_error("invalid FEN");
+    }
     clear();
     std::stringstream stream(FEN);
     std::string section_board;
@@ -202,9 +297,25 @@ namespace chess
     return whiteToMove_;
   }
 
-  void Position::print(std::ostream& out) const
+  void Position::print(std::ostream& out, bool flipped) const
   {
-    out << *this;
+    if (!flipped)
+    {
+      out << *this;
+      return;
+    }
+    for (int row = 0; row < 8; ++row)
+    {
+      out << row + 1;
+      for (int col = 7; col >= 0; --col)
+      {
+        out << " " << pieceToChar(static_cast< Piece >(getPiece(8 * row + col)));
+      }
+      out << "\n";
+    }
+    out << "  h g f e d c b a" << "\n";
+    isWhiteToMove() ? out << "White " : out << "Black ";
+    out << "to move\n";
   }
 
   std::ostream& operator<<(std::ostream& out, const Position& pos)
