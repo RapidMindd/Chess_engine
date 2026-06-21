@@ -8,6 +8,7 @@
 #include "zobrist.hpp"
 #include "piece_square_tables.hpp"
 #include <cstdint>
+#include <chrono>
 
 namespace chess
 {
@@ -113,6 +114,11 @@ namespace chess
   int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash,
     bool allow_null)
   {
+    if (isTimeUp())
+    {
+      return alpha;
+    }
+
     Move tt_move = null_move;
     TTEntry entry = tt_.getEntry(hash);
     int tt_eval = 0;
@@ -168,9 +174,19 @@ namespace chess
       ++nodes.nnodes;
       int reduction = can_reduce ? getLMRReduction(depth, move_number) : 0;
       int curr_eval = -negamax(pos, depth - 1 - reduction, -beta, -alpha, ply + 1, nodes, cur_hash);
+      if (stopped_)
+      {
+        pos.undoMove(move, undo);
+        return alpha;
+      }
       if (reduction && curr_eval > alpha)
       {
         curr_eval = -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash);
+        if (stopped_)
+        {
+          pos.undoMove(move, undo);
+          return alpha;
+        }
       }
       if (curr_eval > eval)
       {
@@ -204,6 +220,11 @@ namespace chess
 
   int Engine::quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& nodes)
   {
+    if (isTimeUp())
+    {
+      return alpha;
+    }
+
     UndoInfo undo;
     MoveArray moves;
 
@@ -248,6 +269,11 @@ namespace chess
       no_moves = false;
       ++nodes.qnodes;
       eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
+      if (stopped_)
+      {
+        pos.undoMove(moves.get(i), undo);
+        return alpha;
+      }
       pos.undoMove(moves.get(i), undo);
 
       alpha = std::max(alpha, eval);
@@ -265,8 +291,15 @@ namespace chess
     return alpha;
   }
 
-  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes* nodes)
+  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes* nodes, int time_ms)
   {
+    use_time_ = time_ms > 0;
+    stopped_ = false;
+    if (use_time_)
+    {
+      deadline_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(time_ms);
+    }
+
     SearchNodes local_nodes;
     SearchNodes& search_nodes = nodes ? *nodes : local_nodes;
     uint64_t init_hash = zobristHash(pos);
@@ -274,16 +307,22 @@ namespace chess
     MoveArray moves = gen.generateLegalMoves(pos);
     if (moves.empty())
     {
+      use_time_ = false;
       if (gen.isCheck(pos))
       {
         return {null_move,-MATE};
       }
       return {null_move,0};
     }
-    Move best_move = null_move;
+    Move best_move = moves.get(0);
     int best_eval = 0;
-    for (int cur_depth = 1; cur_depth <= depth; ++cur_depth)
+    int max_depth = use_time_ ? 64 : depth;
+    for (int cur_depth = 1; cur_depth <= max_depth; ++cur_depth)
     {
+      if (isTimeUp())
+      {
+        break;
+      }
       int eval = 0;
 
       int window = 50;
@@ -293,6 +332,10 @@ namespace chess
       {
         std::pair< Move, int > result = searchRoot(pos, moves, init_hash,
           cur_depth, alpha, beta, search_nodes, best_move);
+        if (stopped_)
+        {
+          break;
+        }
         eval = result.second;
 
         if (eval <= alpha)
@@ -310,8 +353,13 @@ namespace chess
         }
         window *= 2;
       }
+      if (stopped_)
+      {
+        break;
+      }
       best_eval = eval;
     }
+    use_time_ = false;
     return {best_move, (pos.isWhiteToMove() ? best_eval : -best_eval) / 100.0};
   }
 
@@ -325,10 +373,19 @@ namespace chess
     rateMoves(moves, pos, null_move, prev_best);
     for (int i = 0; i < moves.size(); ++i)
     {
+      if (isTimeUp())
+      {
+        break;
+      }
       MvBestMoveToBeg(moves, i);
       uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       int cur_eval = -negamax(pos, depth - 1, -beta, -alpha, 0, nodes, hash);
+      if (stopped_)
+      {
+        pos.undoMove(moves.get(i), undo);
+        break;
+      }
       if (cur_eval > eval)
       {
         eval = cur_eval;
@@ -465,6 +522,16 @@ namespace chess
     tt_(size)
   {
     initZobristHash();
+  }
+
+  bool Engine::isTimeUp()
+  {
+    if (use_time_ && std::chrono::steady_clock::now() >= deadline_)
+    {
+      stopped_ = true;
+      return true;
+    }
+    return false;
   }
 
   Move Engine::leastValuableAttacker(const Position& pos, int square)

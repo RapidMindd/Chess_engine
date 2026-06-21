@@ -7,6 +7,7 @@
 #include "zobrist.hpp"
 #include <utility>
 #include <cstdint>
+#include <chrono>
 
 namespace chess
 {
@@ -20,12 +21,17 @@ namespace chess
   {
   private:
     TranspositionTable tt_;
+    bool use_time_ = false;
+    bool stopped_ = false;
+    std::chrono::steady_clock::time_point deadline_;
+
+    bool isTimeUp();
 
   public:
     Engine();
     Engine(uint64_t size);
 
-    std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes* nodes = nullptr);
+    std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes* nodes = nullptr, int time_ms = 0);
     std::pair< Move, int> searchRoot(Position& pos, MoveArray& moves, uint64_t init_hash,
       int depth, int alpha, int beta, SearchNodes& nodes, const Move& prev_best);
     int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash,
