@@ -1,6 +1,7 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
 
+#include "evaluator.hpp"
 #include "position.hpp"
 #include "move.hpp"
 #include "transposition_table.hpp"
@@ -21,6 +22,7 @@ namespace chess
   {
   private:
     TranspositionTable tt_;
+    Evaluator evaluator_;
     bool use_time_ = false;
     bool stopped_ = false;
     std::chrono::steady_clock::time_point deadline_;
@@ -29,6 +31,7 @@ namespace chess
 
   public:
     Engine();
+    explicit Engine(const EvaluationCoefficients& coefficients);
     Engine(uint64_t size);
 
     std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes* nodes = nullptr, int time_ms = 0);

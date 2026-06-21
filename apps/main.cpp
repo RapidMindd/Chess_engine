@@ -2,13 +2,21 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <utility>
 
 #include "datastructures/robinHoodTable.hpp"
+#include "engine.hpp"
 #include "game.hpp"
 #include "move_generator.hpp"
 
 using games_t = tarasenko::RobinHoodTable< std::string, chess::Game >;
+
+struct SearchParams
+{
+  int depth = 6;
+  chess::EvaluationStrategy strategy = chess::EvaluationStrategy::BALANCED;
+};
 
 std::string readName(std::istream& in)
 {
@@ -29,6 +37,32 @@ std::string readName(std::istream& in)
 bool isSpace(char c)
 {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+bool isNumber(const std::string& str)
+{
+  if (str.empty())
+  {
+    return false;
+  }
+  for (size_t i = 0; i < str.size(); ++i)
+  {
+    if (str[i] < '0' || str[i] > '9')
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+int toInt(const std::string& str)
+{
+  int ans = 0;
+  for (size_t i = 0; i < str.size(); ++i)
+  {
+    ans = ans * 10 + str[i] - '0';
+  }
+  return ans;
 }
 
 std::pair< std::string, std::string > readFenAndName(std::istream& in)
@@ -82,6 +116,35 @@ chess::Move readMove(std::istream& in)
     throw std::logic_error("invalid move");
   }
   return move;
+}
+
+SearchParams readSearchParams(std::istream& in)
+{
+  SearchParams params;
+  std::string line;
+  std::getline(in, line);
+  std::stringstream stream(line);
+  std::string word;
+  for (int i = 0; stream >> word; ++i)
+  {
+    if (i == 2)
+    {
+      throw std::logic_error("invalid arguments");
+    }
+    if (isNumber(word))
+    {
+      params.depth = toInt(word);
+    }
+    else
+    {
+      params.strategy = chess::getEvaluationStrategy(word);
+    }
+  }
+  if (params.depth <= 0)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  return params;
 }
 
 void newGame(std::istream& in, std::ostream&, games_t& games)
@@ -152,6 +215,24 @@ void prevMove(std::istream& in, std::ostream&, games_t& games)
   getGame(games, name).prevMove();
 }
 
+void bestMove(std::istream& in, std::ostream& out, games_t& games)
+{
+  std::string name = readName(in);
+  chess::Game& game = getGame(games, name);
+
+  SearchParams params = readSearchParams(in);
+
+  chess::Position pos = game.getPosition();
+  chess::MoveArray moves = chess::MoveGenerator::generateLegalMoves(pos);
+  if (moves.empty())
+  {
+    throw std::logic_error("no legal moves");
+  }
+
+  chess::Engine engine(chess::getEvaluationCoefficients(params.strategy));
+  out << engine.findBestMove(pos, params.depth).first << "\n";
+}
+
 int main()
 {
   games_t games;
@@ -166,6 +247,7 @@ int main()
   cmds["undo_move"] = undoMove;
   cmds["next_move"] = nextMove;
   cmds["prev_move"] = prevMove;
+  cmds["best_move"] = bestMove;
 
   std::string cmd;
   while (std::cin >> cmd)

@@ -238,7 +238,7 @@ namespace chess
 
     else
     {
-      int stand_pat = Evaluator{}.relative_eval(pos);
+      int stand_pat = evaluator_.relative_eval(pos);
       alpha = std::max(alpha, stand_pat);
       if (stand_pat >= beta)
       {
@@ -514,6 +514,12 @@ namespace chess
   }
 
   Engine::Engine()
+  {
+    initZobristHash();
+  }
+
+  Engine::Engine(const EvaluationCoefficients& coefficients):
+    evaluator_(coefficients)
   {
     initZobristHash();
   }

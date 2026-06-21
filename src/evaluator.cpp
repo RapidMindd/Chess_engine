@@ -6,9 +6,26 @@
 
 namespace chess
 {
-  int Evaluator::evaluate(const Position& pos)
+  Evaluator::Evaluator():
+    coefficients_()
+  {}
+
+  Evaluator::Evaluator(const EvaluationCoefficients& coefficients):
+    coefficients_(coefficients)
+  {}
+
+  int Evaluator::applyCoefficient(int eval, int coefficient)
   {
-    int eval = 0;
+    return eval * coefficient / 100;
+  }
+
+  int Evaluator::evaluate(const Position& pos) const
+  {
+    int material_eval = 0;
+    int mobility_eval = 0;
+    int tables_eval = 0;
+    int pawns_eval = 0;
+    int king_eval = 0;
 
     int white_pawn_cols[8] = {};
     int black_pawn_cols[8] = {};
@@ -16,18 +33,22 @@ namespace chess
     for (int i = A1; i <= H8; ++i)
     {
       Piece cur = static_cast< Piece >(pos.getPiece(i));
-      material(cur, eval);
-      mobility(pos, i, cur, eval);
-      piece_square_tables(i, cur, eval);
+      material(cur, material_eval);
+      mobility(pos, i, cur, mobility_eval);
+      piece_square_tables(i, cur, tables_eval);
       pawn_structure_fill(cur, i, white_pawn_cols, black_pawn_cols);
     }
-    pawn_structure_eval(white_pawn_cols, black_pawn_cols, eval);
-    king_safety(pos, eval);
+    pawn_structure_eval(white_pawn_cols, black_pawn_cols, pawns_eval);
+    king_safety(pos, king_eval);
 
-    return eval;
+    return applyCoefficient(material_eval, coefficients_.material_)
+      + applyCoefficient(mobility_eval, coefficients_.mobility_)
+      + applyCoefficient(tables_eval, coefficients_.pieceSquareTables_)
+      + applyCoefficient(pawns_eval, coefficients_.pawnStructure_)
+      + applyCoefficient(king_eval, coefficients_.kingSafety_);
   }
 
-  int Evaluator::relative_eval(const Position& pos)
+  int Evaluator::relative_eval(const Position& pos) const
   {
     int eval = evaluate(pos);
     return pos.isWhiteToMove() ? eval : -eval;
