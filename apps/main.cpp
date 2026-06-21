@@ -174,6 +174,21 @@ chess::Move readMove(std::istream& in)
   return move;
 }
 
+int readDepth(std::istream& in)
+{
+  std::string word = readName(in);
+  if (!isNumber(word))
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  int depth = toInt(word);
+  if (depth <= 0)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  return depth;
+}
+
 SearchParams readSearchParams(std::istream& in)
 {
   SearchParams params;
@@ -320,6 +335,63 @@ void analyze(std::istream& in, std::ostream& out, games_t& games)
   out << analyzer.analyze(game, params.depth, params.time_ms) << "\n";
 }
 
+std::string getGameResult(const chess::Position& pos)
+{
+  chess::MoveArray moves = chess::MoveGenerator::generateLegalMoves(pos);
+  if (!moves.empty())
+  {
+    return "draw";
+  }
+  if (chess::MoveGenerator::isCheck(pos))
+  {
+    return pos.isWhiteToMove() ? "black wins" : "white wins";
+  }
+  return "draw";
+}
+
+void playItself(std::istream& in, std::ostream& out, games_t& games)
+{
+  const int max_plies = 200;
+  std::string name = readName(in);
+  chess::Game& game = getGame(games, name);
+  chess::EvaluationStrategy white_strategy = chess::getEvaluationStrategy(readName(in));
+  chess::EvaluationStrategy black_strategy = chess::getEvaluationStrategy(readName(in));
+  int white_depth = readDepth(in);
+  int black_depth = readDepth(in);
+
+  chess::Position pos = game.getPosition();
+  if (chess::MoveGenerator::generateLegalMoves(pos).empty())
+  {
+    throw std::logic_error("no legal moves");
+  }
+
+  for (int ply = 0; ply < max_plies; ++ply)
+  {
+    if (chess::MoveGenerator::generateLegalMoves(game.getPosition()).empty())
+    {
+      break;
+    }
+    bool white_to_move = game.getPosition().isWhiteToMove();
+    SearchParams params;
+    params.depth = white_to_move ? white_depth : black_depth;
+    params.strategy = white_to_move ? white_strategy : black_strategy;
+    chess::Position cur = game.getPosition();
+    chess::Move move = searchPosition(cur, params).first;
+    game.makeMove(move);
+    if (white_to_move)
+    {
+      out << ply / 2 + 1 << "." << move << "\n";
+    }
+    else
+    {
+      out << ply / 2 + 1 << "..." << move << "\n";
+    }
+  }
+
+  game.print(out);
+  out << "Result: " << getGameResult(game.getPosition()) << "\n";
+}
+
 int main()
 {
   games_t games;
@@ -337,6 +409,7 @@ int main()
   cmds["best_move"] = bestMove;
   cmds["evaluate"] = evaluate;
   cmds["analyze"] = analyze;
+  cmds["play_itself"] = playItself;
 
   std::string cmd;
   while (std::cin >> cmd)
