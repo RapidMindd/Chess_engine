@@ -66,6 +66,24 @@ int toInt(const std::string& str)
   return ans;
 }
 
+int secondsToMs(const std::string& str)
+{
+  std::stringstream stream(str);
+  double seconds = 0;
+  char extra = 0;
+  stream >> seconds;
+  if (!stream || (stream >> extra))
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  int ms = static_cast< int >(seconds * 1000);
+  if (ms <= 0)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  return ms;
+}
+
 bool setSearchLimit(const std::string& word, SearchParams& params)
 {
   if (isNumber(word))
@@ -79,24 +97,24 @@ bool setSearchLimit(const std::string& word, SearchParams& params)
     return false;
   }
   std::string value = word.substr(1);
-  if (!isNumber(value))
-  {
-    return false;
-  }
-  int number = toInt(value);
-  if (number <= 0)
-  {
-    throw std::logic_error("invalid arguments");
-  }
   if (word[0] == 'd')
   {
+    if (!isNumber(value))
+    {
+      throw std::logic_error("invalid arguments");
+    }
+    int number = toInt(value);
+    if (number <= 0)
+    {
+      throw std::logic_error("invalid arguments");
+    }
     params.depth = number;
     params.time_ms = 0;
     return true;
   }
   if (word[0] == 't')
   {
-    params.time_ms = number * 1000;
+    params.time_ms = secondsToMs(value);
     return true;
   }
   return false;
@@ -190,6 +208,12 @@ SearchParams readSearchParams(std::istream& in)
   return params;
 }
 
+std::pair< chess::Move, float > searchPosition(chess::Position& pos, const SearchParams& params)
+{
+  chess::Engine engine(chess::getEvaluationCoefficients(params.strategy));
+  return engine.findBestMove(pos, params.depth, nullptr, params.time_ms);
+}
+
 void newGame(std::istream& in, std::ostream&, games_t& games)
 {
   std::string name = readName(in);
@@ -272,8 +296,17 @@ void bestMove(std::istream& in, std::ostream& out, games_t& games)
     throw std::logic_error("no legal moves");
   }
 
-  chess::Engine engine(chess::getEvaluationCoefficients(params.strategy));
-  out << engine.findBestMove(pos, params.depth, nullptr, params.time_ms).first << "\n";
+  out << searchPosition(pos, params).first << "\n";
+}
+
+void evaluate(std::istream& in, std::ostream& out, games_t& games)
+{
+  std::string name = readName(in);
+  chess::Game& game = getGame(games, name);
+
+  SearchParams params = readSearchParams(in);
+  chess::Position pos = game.getPosition();
+  out << searchPosition(pos, params).second << "\n";
 }
 
 int main()
@@ -291,6 +324,7 @@ int main()
   cmds["next_move"] = nextMove;
   cmds["prev_move"] = prevMove;
   cmds["best_move"] = bestMove;
+  cmds["evaluate"] = evaluate;
 
   std::string cmd;
   while (std::cin >> cmd)
