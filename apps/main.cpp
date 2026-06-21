@@ -1,75 +1,75 @@
 #include <iostream>
 #include <limits>
-#include <cctype>
-#include "position.hpp"
-#include "move.hpp"
-#include "move_generator.hpp"
-#include "engine.hpp"
+#include <stdexcept>
+#include <string>
 
-int main(int argc, char** argv)
+#include "datastructures/robinHoodTable.hpp"
+#include "game.hpp"
+
+using games_t = tarasenko::RobinHoodTable< std::string, chess::Game >;
+
+std::string readName(std::istream& in)
 {
-  using namespace chess;
-
-  const int default_depth = 6;
-  int depth = 0;
-  if (argc == 1)
+  std::istream::sentry s(in);
+  if (!s)
   {
-    depth = default_depth;
+    throw std::logic_error("invalid arguments");
   }
-  else if (argc > 2)
+  std::string name;
+  in >> name;
+  if (!in)
   {
-    std::cerr << "Invalid arguments\n";
-    return 1;
+    throw std::logic_error("invalid arguments");
   }
-  else
+  return name;
+}
+
+void newGame(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  if (games.count(name))
   {
-    int i = 0;
-    while (argv[1][i] != '\0')
-    {
-      if (!std::isdigit(argv[1][i]) || i > 1)
-      {
-        std::cerr << "Invalid arguments\n";
-        return 1;
-      }
-      depth = depth * 10 + (argv[1][i] - '0');
-      ++i;
-    }
+    throw std::logic_error("board with this name already exist");
   }
+  games.insert({name, chess::Game()});
+}
 
-  UndoInfo undo;
-  Position pos;
-  pos.setInitial();
-  pos.print();
-  MoveArray valid_moves;
-  Move curr;
-  Engine engine;
-  while (true)
+void printGame(std::istream& in, std::ostream& out, games_t& games)
+{
+  std::string name = readName(in);
+  if (games.count(name) == 0)
   {
-    if (!(std::cin >> curr))
-    {
-      if (std::cin.eof())
-      {
-        return 0;
-      }
-      std::cout << "Invalid notation\n";
-      std::cin.clear();
-      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-      continue;
-    }
+    throw std::logic_error("no board with this name");
+  }
+  games.at(name).print(out);
+}
 
-    valid_moves = MoveGenerator{}.generateLegalMoves(pos);
+int main()
+{
+  games_t games;
+
+  using cmd_t = void(*)(std::istream&, std::ostream&, games_t&);
+  tarasenko::RobinHoodTable< std::string, cmd_t > cmds;
+  cmds["new"] = newGame;
+  cmds["print"] = printGame;
+
+  std::string cmd;
+  while (std::cin >> cmd)
+  {
     try
     {
-      pos.makeMove(getMove(valid_moves, curr), undo);
+      if (cmds.count(cmd) == 0)
+      {
+        throw std::logic_error("unknown command");
+      }
+      cmds.at(cmd)(std::cin, std::cout, games);
     }
-    catch(const std::exception& e)
+    catch (const std::exception& e)
     {
-      std::cout << e.what() << "\n";
-      continue;
+      std::cout << "<INVALID COMMAND: " << e.what() << ">\n";
+      auto toignore = std::numeric_limits< std::streamsize >::max();
+      std::cin.clear();
+      std::cin.ignore(toignore, '\n');
     }
-    auto ans =  engine.findBestMove(pos, depth);
-    pos.makeMove(ans.first, undo);
-    pos.print();
-    std::cout << "Eval: " << ans.second << "\n";
   }
 }

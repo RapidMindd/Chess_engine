@@ -202,9 +202,9 @@ namespace chess
     return whiteToMove_;
   }
 
-  void Position::print() const
+  void Position::print(std::ostream& out) const
   {
-    std::cout << *this;
+    out << *this;
   }
 
   std::ostream& operator<<(std::ostream& out, const Position& pos)

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <ostream>
 #include <string>
 
 #include "square.hpp"
@@ -74,7 +75,7 @@ namespace chess
 
     Position getToggledSideToMovePosition() const;
 
-    void print() const;
+    void print(std::ostream& out = std::cout) const;
 
     // для тестов
     void placePiece(int square, Piece piece);
