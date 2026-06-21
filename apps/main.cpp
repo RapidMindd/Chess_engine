@@ -14,7 +14,8 @@ using games_t = tarasenko::RobinHoodTable< std::string, chess::Game >;
 
 struct SearchParams
 {
-  int depth = 6;
+  int depth = 10;
+  int time_ms = 0;
   chess::EvaluationStrategy strategy = chess::EvaluationStrategy::BALANCED;
 };
 
@@ -63,6 +64,42 @@ int toInt(const std::string& str)
     ans = ans * 10 + str[i] - '0';
   }
   return ans;
+}
+
+bool setSearchLimit(const std::string& word, SearchParams& params)
+{
+  if (isNumber(word))
+  {
+    params.depth = toInt(word);
+    params.time_ms = 0;
+    return true;
+  }
+  if (word.size() < 2)
+  {
+    return false;
+  }
+  std::string value = word.substr(1);
+  if (!isNumber(value))
+  {
+    return false;
+  }
+  int number = toInt(value);
+  if (number <= 0)
+  {
+    throw std::logic_error("invalid arguments");
+  }
+  if (word[0] == 'd')
+  {
+    params.depth = number;
+    params.time_ms = 0;
+    return true;
+  }
+  if (word[0] == 't')
+  {
+    params.time_ms = number * 1000;
+    return true;
+  }
+  return false;
 }
 
 std::pair< std::string, std::string > readFenAndName(std::istream& in)
@@ -124,23 +161,29 @@ SearchParams readSearchParams(std::istream& in)
   std::string line;
   std::getline(in, line);
   std::stringstream stream(line);
-  std::string word;
-  for (int i = 0; stream >> word; ++i)
+  std::string first;
+  std::string second;
+  std::string extra;
+
+  stream >> first;
+  if (!stream)
   {
-    if (i == 2)
+    return params;
+  }
+  if (setSearchLimit(first, params))
+  {
+    stream >> second;
+    if (stream)
     {
-      throw std::logic_error("invalid arguments");
-    }
-    if (isNumber(word))
-    {
-      params.depth = toInt(word);
-    }
-    else
-    {
-      params.strategy = chess::getEvaluationStrategy(word);
+      params.strategy = chess::getEvaluationStrategy(second);
     }
   }
-  if (params.depth <= 0)
+  else
+  {
+    params.strategy = chess::getEvaluationStrategy(first);
+  }
+  stream >> extra;
+  if (stream || params.depth <= 0 || params.time_ms < 0)
   {
     throw std::logic_error("invalid arguments");
   }
@@ -230,7 +273,7 @@ void bestMove(std::istream& in, std::ostream& out, games_t& games)
   }
 
   chess::Engine engine(chess::getEvaluationCoefficients(params.strategy));
-  out << engine.findBestMove(pos, params.depth).first << "\n";
+  out << engine.findBestMove(pos, params.depth, nullptr, params.time_ms).first << "\n";
 }
 
 int main()
