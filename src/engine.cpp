@@ -98,8 +98,20 @@ namespace chess
   {
     return depth > 3 && move_number > 2 && isQuietMove(pos, move);
   }
+  uint64_t nullMoveHash(const Position& pos)
+  {
+    Position null_pos = pos.getToggledSideToMovePosition();
+    null_pos.setEnPassantSquare(-1);
+    return zobristHash(null_pos);
+  }
 
-  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash)
+  bool canTryNullMove(int depth, bool in_check, bool allow_null)
+  {
+    return allow_null && depth >= 3 && !in_check;
+  }
+
+  int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash,
+    bool allow_null)
   {
     Move tt_move = null_move;
     TTEntry entry = tt_.getEntry(hash);
@@ -115,6 +127,20 @@ namespace chess
     }
 
     MoveGenerator gen;
+    bool in_check = gen.isCheck(pos);
+    if (canTryNullMove(depth, in_check, allow_null))
+    {
+      int reduction = depth >= 6 ? 3 : 2;
+      Position null_pos = pos.getToggledSideToMovePosition();
+      null_pos.setEnPassantSquare(-1);
+      int null_eval = -negamax(null_pos, depth - 1 - reduction, -beta, -beta + 1, ply + 1, nodes,
+        nullMoveHash(pos), false);
+      if (null_eval >= beta)
+      {
+        return beta;
+      }
+    }
+
     MoveArray moves = gen.generatePseudoLegalMoves(pos);
 
     rateMoves(moves, pos, tt_move);

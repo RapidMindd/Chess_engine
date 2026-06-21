@@ -28,7 +28,8 @@ namespace chess
     std::pair< Move, float> findBestMove(Position& pos, int depth, SearchNodes* nodes = nullptr);
     std::pair< Move, int> searchRoot(Position& pos, MoveArray& moves, uint64_t init_hash,
       int depth, int alpha, int beta, SearchNodes& nodes, const Move& prev_best);
-    int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash);
+    int negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash,
+      bool allow_null = true);
     int quiescence(Position& pos, int alpha, int beta, int ply, SearchNodes& qnode);
 
     void rateMoves(MoveArray& moves, Position& pos, const Move& tt_move = null_move, const Move& prev_best = null_move);
