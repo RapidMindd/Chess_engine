@@ -198,6 +198,61 @@ namespace chess
     }
   }
 
+  std::string Position::toFEN() const
+  {
+    std::string fen;
+    for (int row = 7; row >= 0; --row)
+    {
+      int empty = 0;
+      for (int col = 0; col < 8; ++col)
+      {
+        Piece piece = static_cast< Piece >(getPiece(row * 8 + col));
+        if (piece == EMPTY)
+        {
+          ++empty;
+        }
+        else
+        {
+          if (empty)
+          {
+            fen += static_cast< char >('0' + empty);
+            empty = 0;
+          }
+          fen += pieceToChar(piece);
+        }
+      }
+      if (empty)
+      {
+        fen += static_cast< char >('0' + empty);
+      }
+      if (row)
+      {
+        fen += '/';
+      }
+    }
+
+    fen += isWhiteToMove() ? " w " : " b ";
+    std::string castling;
+    if (whiteKingCastling_) castling += 'K';
+    if (whiteQueenCastling_) castling += 'Q';
+    if (blackKingCastling_) castling += 'k';
+    if (blackQueenCastling_) castling += 'q';
+    fen += castling.empty() ? "-" : castling;
+    fen += ' ';
+
+    if (enPassantSquare_ == -1)
+    {
+      fen += '-';
+    }
+    else
+    {
+      fen += static_cast< char >('a' + enPassantSquare_ % 8);
+      fen += static_cast< char >('1' + enPassantSquare_ / 8);
+    }
+    fen += " 0 1";
+    return fen;
+  }
+
   bool Position::operator==(const Position& another) const noexcept
   {
     for (int i = A1; i <= H8; ++i)

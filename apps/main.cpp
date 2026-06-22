@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -7,6 +8,7 @@
 
 #include "analyzer.hpp"
 #include "datastructures/robinHoodTable.hpp"
+#include "datastructures/vector.hpp"
 #include "engine.hpp"
 #include "game.hpp"
 #include "move_generator.hpp"
@@ -258,6 +260,187 @@ void printGame(std::istream& in, std::ostream& out, games_t& games)
   getGame(games, name).print(out);
 }
 
+void listGames(std::istream&, std::ostream& out, games_t& games)
+{
+  for (auto it = games.begin(); it != games.end(); ++it)
+  {
+    out << it->first << "\n";
+  }
+}
+
+struct MoveIO
+{
+  chess::Game& game;
+};
+
+struct LoadedGame
+{
+  std::string name;
+  chess::Game game;
+};
+
+bool isEmptyLine(const std::string& line)
+{
+  return line.find_first_not_of(" \t\r\n") == std::string::npos;
+}
+
+std::istream& operator>>(std::istream& in, MoveIO&& dest)
+{
+  std::istream::sentry s(in);
+  if (!s)
+  {
+    return in;
+  }
+  chess::Move move;
+  in >> move;
+  if (!in)
+  {
+    return in;
+  }
+  chess::MoveArray moves = chess::MoveGenerator::generateLegalMoves(dest.game.getPosition());
+  try
+  {
+    dest.game.makeMove(chess::getMove(moves, move));
+  }
+  catch (const std::exception&)
+  {
+    in.setstate(std::ios::failbit);
+  }
+  return in;
+}
+
+void readMoveLine(const std::string& line, chess::Game& game)
+{
+  std::stringstream stream(line);
+  stream >> MoveIO{game};
+  if (!stream)
+  {
+    throw std::logic_error("invalid file");
+  }
+  stream >> std::ws;
+  if (stream.eof())
+  {
+    return;
+  }
+  stream >> MoveIO{game};
+  if (!stream)
+  {
+    throw std::logic_error("invalid file");
+  }
+  stream >> std::ws;
+  if (!stream.eof())
+  {
+    throw std::logic_error("invalid file");
+  }
+}
+
+std::istream& operator>>(std::istream& in, LoadedGame& dest)
+{
+  std::istream::sentry s(in);
+  if (!s)
+  {
+    return in;
+  }
+
+  std::string name;
+  std::string fen;
+  std::getline(in, name);
+  if (!std::getline(in, fen) || isEmptyLine(name) || isEmptyLine(fen))
+  {
+    in.setstate(std::ios::failbit);
+    return in;
+  }
+
+  try
+  {
+    chess::Game game(chess::Position(fen.c_str()));
+    std::string line;
+    while (std::getline(in, line))
+    {
+      if (isEmptyLine(line))
+      {
+        break;
+      }
+      readMoveLine(line, game);
+    }
+    dest.name = name;
+    dest.game = game;
+  }
+  catch (const std::exception&)
+  {
+    in.setstate(std::ios::failbit);
+  }
+  return in;
+}
+
+void printSavedGame(std::ostream& out, const std::string& name, const chess::Game& game)
+{
+  out << name << "\n";
+  out << game.getStartPosition().toFEN() << "\n";
+  for (size_t i = 0; i < game.getMovesCount(); i += 2)
+  {
+    out << game.getMove(i);
+    if (i + 1 < game.getMovesCount())
+    {
+      out << " " << game.getMove(i + 1);
+    }
+    out << "\n";
+  }
+  out << "\n";
+}
+
+void saveGames(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string file_name = readName(in);
+  std::ofstream file(file_name);
+  if (!file)
+  {
+    throw std::logic_error("invalid file");
+  }
+  for (auto it = games.begin(); it != games.end(); ++it)
+  {
+    printSavedGame(file, it->first, it->second);
+  }
+}
+
+void loadGames(std::istream& in, std::ostream& out, games_t& games)
+{
+  std::string file_name = readName(in);
+  std::ifstream file(file_name);
+  if (!file)
+  {
+    throw std::logic_error("invalid file");
+  }
+
+  tarasenko::Vector< LoadedGame > loaded;
+  while (file)
+  {
+    LoadedGame game;
+    file >> game;
+    if (file)
+    {
+      loaded.pushBack(game);
+    }
+    else if (!file.eof())
+    {
+      throw std::logic_error("invalid file");
+    }
+  }
+
+  for (size_t i = 0; i < loaded.getSize(); ++i)
+  {
+    if (games.count(loaded[i].name))
+    {
+      games.at(loaded[i].name) = loaded[i].game;
+    }
+    else
+    {
+      games.insert({loaded[i].name, loaded[i].game});
+    }
+    out << loaded[i].name << "\n";
+  }
+}
+
 void flipGame(std::istream& in, std::ostream&, games_t& games)
 {
   std::string name = readName(in);
@@ -419,6 +602,7 @@ int main()
   cmds["new"] = newGame;
   cmds["set_fen"] = setFen;
   cmds["print"] = printGame;
+  cmds["list"] = listGames;
   cmds["flip"] = flipGame;
   cmds["make_move"] = makeMove;
   cmds["undo_move"] = undoMove;
@@ -428,6 +612,8 @@ int main()
   cmds["evaluate"] = evaluate;
   cmds["analyze"] = analyze;
   cmds["play_itself"] = playItself;
+  cmds["save"] = saveGames;
+  cmds["load"] = loadGames;
 
   std::string cmd;
   while (std::cin >> cmd)

@@ -78,6 +78,7 @@ namespace chess
 
     Position getToggledSideToMovePosition() const;
 
+    std::string toFEN() const;
     void print(std::ostream& out = std::cout, bool flipped = false) const;
 
     // для тестов
