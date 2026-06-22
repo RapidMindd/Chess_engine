@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <istream>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -242,6 +243,16 @@ void newGame(std::istream& in, std::ostream&, games_t& games)
   games.insert({name, chess::Game()});
 }
 
+void removeGame(std::istream& in, std::ostream&, games_t& games)
+{
+  std::string name = readName(in);
+  if (!games.count(name))
+  {
+    throw std::logic_error("no board with this name");
+  }
+  games.erase(name);
+}
+
 void setFen(std::istream& in, std::ostream&, games_t& games)
 {
   auto parsed = readFenAndName(in);
@@ -392,10 +403,31 @@ void printSavedGame(std::ostream& out, const std::string& name, const chess::Gam
 void saveGames(std::istream& in, std::ostream&, games_t& games)
 {
   std::string file_name = readName(in);
+  std::string line;
+  std::getline(in, line);
+  std::stringstream stream(line);
+  std::string name;
+  std::string extra;
+  chess::Game* game = nullptr;
+  stream >> name;
+  if (stream)
+  {
+    stream >> extra;
+    if (stream)
+    {
+      throw std::logic_error("invalid arguments");
+    }
+    game = &getGame(games, name);
+  }
   std::ofstream file(file_name);
   if (!file)
   {
     throw std::logic_error("invalid file");
+  }
+  if (game)
+  {
+    printSavedGame(file, name, *game);
+    return;
   }
   for (auto it = games.begin(); it != games.end(); ++it)
   {
@@ -600,6 +632,7 @@ int main()
   using cmd_t = void(*)(std::istream&, std::ostream&, games_t&);
   tarasenko::RobinHoodTable< std::string, cmd_t > cmds;
   cmds["new"] = newGame;
+  cmds["remove"] = removeGame;
   cmds["set_fen"] = setFen;
   cmds["print"] = printGame;
   cmds["list"] = listGames;
