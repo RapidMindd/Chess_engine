@@ -312,7 +312,17 @@ void bestMove(std::istream& in, std::ostream& out, games_t& games)
     throw std::logic_error("no legal moves");
   }
 
-  out << searchPosition(pos, params).first << "\n";
+  size_t move_number = game.getCurrentMove() / 2 + 1;
+  if (game.getPosition().isWhiteToMove())
+  {
+    out << move_number << ".";
+  }
+  else
+  {
+    out << move_number << "...";
+  }
+  printMove(searchPosition(pos, params).first, pos, out);
+  out << "\n";
 }
 
 void evaluate(std::istream& in, std::ostream& out, games_t& games)
@@ -377,15 +387,23 @@ void playItself(std::istream& in, std::ostream& out, games_t& games)
     params.strategy = white_to_move ? white_strategy : black_strategy;
     chess::Position cur = game.getPosition();
     chess::Move move = searchPosition(cur, params).first;
+    size_t move_number = game.getCurrentMove() / 2 + 1;
     game.makeMove(move);
     if (white_to_move)
     {
-      out << ply / 2 + 1 << "." << move << "\n";
+      out << move_number << ".";
+      printMove(move, cur, out);
     }
     else
     {
-      out << ply / 2 + 1 << "..." << move << "\n";
+      out << " ";
+      printMove(move, cur, out);
+      out << "\n";
     }
+  }
+  if (game.getCurrentMove() % 2 == 1)
+  {
+    out << "\n";
   }
 
   game.print(out);

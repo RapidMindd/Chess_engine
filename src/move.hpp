@@ -47,7 +47,7 @@ namespace chess
   bool isEqualArraysUnordered(const MoveArray& moves1, const MoveArray& moves2);
   Move getMove(const MoveArray& moves, Square from, Square to);
   Move getMove(const MoveArray& moves, Move move);
-  void printMove(const Move& move, const Position& pos);
+  void printMove(const Move& move, const Position& pos, std::ostream& out);
 }
 
 #endif

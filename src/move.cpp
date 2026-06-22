@@ -150,7 +150,7 @@ namespace chess
     throw std::logic_error("Illegal move");
   }
 
-  void printMove(const Move& move, const Position& pos)
+  void printMove(const Move& move, const Position& pos, std::ostream& out)
   {
     int piece = pos.getPiece(move.from_);
     int abs_piece = piece > 0 ? piece : -piece;
@@ -185,10 +185,14 @@ namespace chess
     {
       if (move.to_ - move.from_ == 2)
       {
-        std::cout << "0-0" << check << mate;
+        out << "0-0";
+        if (check) out << check;
+        if (mate) out << mate;
         return;
       }
-      std::cout << "0-0-0" << check << mate;
+      out << "0-0-0";
+      if (check) out << check;
+      if (mate) out << mate;
       return;
     }
 
@@ -215,7 +219,7 @@ namespace chess
           }
           if (curr_move.from_ / 8 != move.from_ / 8)
           {
-            col_from = (move.from_ / 8) + 1;
+            col_from = static_cast< char >('1' + (move.from_ / 8));
           }
         }
       }
@@ -223,7 +227,14 @@ namespace chess
     }
 
     char capture = (pos.getPiece(move.to_) != EMPTY || move.isCastling_) ? 'x' : '\0';
-    std::cout << piece_char << file_from << col_from << hyphen << capture << static_cast< char >('a' + col)
-      << row + 1 << promotion_piece << check << mate;
+    if (piece_char) out << piece_char;
+    if (file_from) out << file_from;
+    if (col_from) out << col_from;
+    if (hyphen) out << hyphen;
+    if (capture) out << capture;
+    out << static_cast< char >('a' + col) << row + 1;
+    if (promotion_piece) out << promotion_piece;
+    if (check) out << check;
+    if (mate) out << mate;
   }
 }
