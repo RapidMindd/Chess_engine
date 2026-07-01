@@ -1,10 +1,12 @@
 #ifndef TRANSPOSITION_TABLE_HPP
 #define TRANSPOSITION_TABLE_HPP
 
+#include <array>
 #include <cstdint>
+#include <mutex>
+#include <vector>
 #include "position.hpp"
 #include "move.hpp"
-#include "datastructures/robinHoodTable.hpp"
 
 namespace chess
 {
@@ -36,15 +38,22 @@ namespace chess
   struct TranspositionTable
   {
   private:
-    tarasenko::RobinHoodTable< uint64_t, TTEntry, TTKeyHash > data_;
-    TTEntry empty_entry_;
+    enum
+    {
+      bucket_size_ = 4,
+      mutex_count_ = 256
+    };
+    std::vector< TTEntry > data_;
+    mutable std::array< std::mutex, mutex_count_ > mutexes_;
+    static uint64_t normalizeSize(uint64_t size) noexcept;
+    uint64_t index(uint64_t key) const noexcept;
 
   public:
     TranspositionTable();
     TranspositionTable(uint64_t size);
 
     void addEntry(TTEntry entry);
-    TTEntry& getEntry(uint64_t key);
+    TTEntry getEntry(uint64_t key);
   };
 }
 

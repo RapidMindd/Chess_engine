@@ -9,6 +9,11 @@
 #include "piece_square_tables.hpp"
 #include <cstdint>
 #include <chrono>
+#include <algorithm>
+#include <atomic>
+#include <cstdlib>
+#include <thread>
+#include <vector>
 
 namespace chess
 {
@@ -111,6 +116,31 @@ namespace chess
     return allow_null && depth >= 3 && !in_check;
   }
 
+  unsigned defaultThreadCount()
+  {
+    const char* env = std::getenv("CHESS_THREADS");
+    if (env != nullptr)
+    {
+      unsigned threads = 0;
+      for (int i = 0; env[i] != '\0'; ++i)
+      {
+        if (env[i] < '0' || env[i] > '9')
+        {
+          return 1;
+        }
+        threads = threads * 10 + static_cast< unsigned >(env[i] - '0');
+      }
+      return threads == 0 ? 1 : threads;
+    }
+
+    unsigned threads = std::thread::hardware_concurrency();
+    if (threads == 0)
+    {
+      return 1;
+    }
+    return std::min(threads, 4U);
+  }
+
   int Engine::negamax(Position& pos, int depth, int alpha, int beta, int ply, SearchNodes& nodes, uint64_t hash,
     bool allow_null)
   {
@@ -167,7 +197,7 @@ namespace chess
       ++nodes.nnodes;
       int reduction = can_reduce ? getLMRReduction(depth, move_number) : 0;
       int curr_eval = -negamax(pos, depth - 1 - reduction, -beta, -alpha, ply + 1, nodes, cur_hash);
-      if (stopped_)
+      if (stopped_.load())
       {
         pos.undoMove(move, undo);
         return alpha;
@@ -175,7 +205,7 @@ namespace chess
       if (reduction && curr_eval > alpha)
       {
         curr_eval = -negamax(pos, depth - 1, -beta, -alpha, ply + 1, nodes, cur_hash);
-        if (stopped_)
+        if (stopped_.load())
         {
           pos.undoMove(move, undo);
           return alpha;
@@ -262,7 +292,7 @@ namespace chess
       no_moves = false;
       ++nodes.qnodes;
       eval = std::max(eval, -quiescence(pos, -beta, -alpha, ply + 1, nodes));
-      if (stopped_)
+      if (stopped_.load())
       {
         pos.undoMove(moves.get(i), undo);
         return alpha;
@@ -284,28 +314,18 @@ namespace chess
     return alpha;
   }
 
-  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes* nodes, int time_ms)
+  std::pair< Move, int > Engine::findBestMoveSingle(Position& pos, int depth, SearchNodes& search_nodes)
   {
-    use_time_ = time_ms > 0;
-    stopped_ = false;
-    if (use_time_)
-    {
-      deadline_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(time_ms);
-    }
-
-    SearchNodes local_nodes;
-    SearchNodes& search_nodes = nodes ? *nodes : local_nodes;
     uint64_t init_hash = zobristHash(pos);
     MoveGenerator gen;
     MoveArray moves = gen.generateLegalMoves(pos);
     if (moves.empty())
     {
-      use_time_ = false;
       if (gen.isCheck(pos))
       {
-        return {null_move,-MATE};
+        return {null_move, -MATE};
       }
-      return {null_move,0};
+      return {null_move, 0};
     }
     Move best_move = moves.get(0);
     int best_eval = 0;
@@ -325,7 +345,7 @@ namespace chess
       {
         std::pair< Move, int > result = searchRoot(pos, moves, init_hash,
           cur_depth, alpha, beta, search_nodes, best_move);
-        if (stopped_)
+        if (stopped_.load())
         {
           break;
         }
@@ -346,14 +366,29 @@ namespace chess
         }
         window *= 2;
       }
-      if (stopped_)
+      if (stopped_.load())
       {
         break;
       }
       best_eval = eval;
     }
+    return {best_move, best_eval};
+  }
+
+  std::pair< Move, float > Engine::findBestMove(Position& pos, int depth, SearchNodes* nodes, int time_ms)
+  {
+    use_time_ = time_ms > 0;
+    stopped_.store(false);
+    if (use_time_)
+    {
+      deadline_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(time_ms);
+    }
+
+    SearchNodes local_nodes;
+    SearchNodes& search_nodes = nodes ? *nodes : local_nodes;
+    std::pair< Move, int > result = findBestMoveSingle(pos, depth, search_nodes);
     use_time_ = false;
-    return {best_move, (pos.isWhiteToMove() ? best_eval : -best_eval) / 100.0};
+    return {result.first, (pos.isWhiteToMove() ? result.second : -result.second) / 100.0};
   }
 
   std::pair< Move, int > Engine::searchRoot(Position& pos, MoveArray& moves, uint64_t init_hash,
@@ -364,6 +399,96 @@ namespace chess
     UndoInfo undo;
 
     rateMoves(moves, pos, null_move, prev_best);
+    if (depth >= 12 && moves.size() > 1)
+    {
+      for (int i = 0; i < moves.size(); ++i)
+      {
+        MvBestMoveToBeg(moves, i);
+      }
+
+      uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(0));
+      pos.makeMove(moves.get(0), undo);
+      eval = -negamax(pos, depth - 1, -beta, -alpha, 0, nodes, hash);
+      if (stopped_.load())
+      {
+        pos.undoMove(moves.get(0), undo);
+        return {best_move, eval};
+      }
+      best_move = moves.get(0);
+      pos.undoMove(moves.get(0), undo);
+      if (eval >= beta || moves.size() == 1)
+      {
+        return {best_move, eval};
+      }
+      alpha = std::max(alpha, eval);
+
+      const int split_alpha = alpha;
+      std::vector< int > results(moves.size(), MIN);
+      std::atomic< int > next_index(1);
+      unsigned worker_count = threads_ > 1
+        ? std::min< unsigned >(threads_ - 1, static_cast< unsigned >(moves.size() - 1))
+        : 0;
+      std::vector< SearchNodes > thread_nodes(worker_count + 1);
+      std::vector< std::thread > workers;
+      workers.reserve(worker_count);
+
+      for (unsigned thread_index = 0; thread_index < worker_count; ++thread_index)
+      {
+        workers.push_back(std::thread([&, thread_index](){
+          while (!stopped_.load())
+          {
+            int move_index = next_index.fetch_add(1);
+            if (move_index >= moves.size())
+            {
+              break;
+            }
+            Position local_pos = pos;
+            UndoInfo local_undo;
+            uint64_t local_hash = incrementZobristHash(init_hash, local_pos, moves.get(move_index));
+            local_pos.makeMove(moves.get(move_index), local_undo);
+            results[move_index] = -negamax(local_pos, depth - 1, -beta, -split_alpha, 0,
+              thread_nodes[thread_index + 1], local_hash);
+            local_pos.undoMove(moves.get(move_index), local_undo);
+          }
+        }));
+      }
+
+      while (!stopped_.load())
+      {
+        int move_index = next_index.fetch_add(1);
+        if (move_index >= moves.size())
+        {
+          break;
+        }
+        Position local_pos = pos;
+        UndoInfo local_undo;
+        hash = incrementZobristHash(init_hash, local_pos, moves.get(move_index));
+        local_pos.makeMove(moves.get(move_index), local_undo);
+        results[move_index] = -negamax(local_pos, depth - 1, -beta, -split_alpha, 0,
+          thread_nodes[0], hash);
+        local_pos.undoMove(moves.get(move_index), local_undo);
+      }
+
+      for (size_t i = 0; i < workers.size(); ++i)
+      {
+        workers[i].join();
+      }
+      for (size_t i = 0; i < thread_nodes.size(); ++i)
+      {
+        nodes.nnodes += thread_nodes[i].nnodes;
+        nodes.qnodes += thread_nodes[i].qnodes;
+      }
+      for (int i = 1; i < moves.size(); ++i)
+      {
+        if (results[i] > eval)
+        {
+          eval = results[i];
+          best_move = moves.get(i);
+        }
+      }
+      return {best_move, eval};
+    }
+
     for (int i = 0; i < moves.size(); ++i)
     {
       if (isTimeUp())
@@ -374,7 +499,7 @@ namespace chess
       uint64_t hash = incrementZobristHash(init_hash, pos, moves.get(i));
       pos.makeMove(moves.get(i), undo);
       int cur_eval = -negamax(pos, depth - 1, -beta, -alpha, 0, nodes, hash);
-      if (stopped_)
+      if (stopped_.load())
       {
         pos.undoMove(moves.get(i), undo);
         break;
@@ -507,12 +632,18 @@ namespace chess
   }
 
   Engine::Engine()
+    : Engine(1ULL << 22, defaultThreadCount())
   {
-    initZobristHash();
   }
 
   Engine::Engine(uint64_t size):
-    tt_(size)
+    Engine(size, defaultThreadCount())
+  {}
+
+  Engine::Engine(uint64_t size, unsigned threads):
+    tt_(size),
+    stopped_(false),
+    threads_(threads == 0 ? 1 : threads)
   {
     initZobristHash();
   }
@@ -521,10 +652,20 @@ namespace chess
   {
     if (use_time_ && std::chrono::steady_clock::now() >= deadline_)
     {
-      stopped_ = true;
+      stopped_.store(true);
       return true;
     }
     return false;
+  }
+
+  void Engine::setThreadCount(unsigned threads)
+  {
+    threads_ = threads == 0 ? 1 : threads;
+  }
+
+  unsigned Engine::getThreadCount() const
+  {
+    return threads_;
   }
 
   Move Engine::leastValuableAttacker(const Position& pos, int square)

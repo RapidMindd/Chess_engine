@@ -12,11 +12,12 @@ int main(int argc, char** argv)
 
   const int default_depth = 6;
   int depth = 0;
+  unsigned threads = 0;
   if (argc == 1)
   {
     depth = default_depth;
   }
-  else if (argc > 2)
+  else if (argc > 3)
   {
     std::cerr << "Invalid arguments\n";
     return 1;
@@ -35,6 +36,20 @@ int main(int argc, char** argv)
       ++i;
     }
   }
+  if (argc == 3)
+  {
+    int i = 0;
+    while (argv[2][i] != '\0')
+    {
+      if (!std::isdigit(argv[2][i]) || i > 2)
+      {
+        std::cerr << "Invalid arguments\n";
+        return 1;
+      }
+      threads = threads * 10 + static_cast< unsigned >(argv[2][i] - '0');
+      ++i;
+    }
+  }
 
   UndoInfo undo;
   Position pos;
@@ -43,6 +58,10 @@ int main(int argc, char** argv)
   MoveArray valid_moves;
   Move curr;
   Engine engine;
+  if (threads != 0)
+  {
+    engine.setThreadCount(threads);
+  }
   while (true)
   {
     if (!(std::cin >> curr))
