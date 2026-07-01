@@ -11,6 +11,16 @@ namespace chess
   uint64_t zobrist_castling[16];
   uint64_t zobrist_enpassant[64];
 
+  namespace
+  {
+    int popLeastSignificantBit(uint64_t& bitboard)
+    {
+      const int square = __builtin_ctzll(bitboard);
+      bitboard &= bitboard - 1;
+      return square;
+    }
+  }
+
   void initZobristHash()
   {
     std::mt19937_64 rng(67);
@@ -35,12 +45,18 @@ namespace chess
   uint64_t zobristHash(const Position &pos)
   {
     uint64_t hash = 0;
-    for (int i = 0; i < 64; i++)
+    const Piece pieces[12] = {
+      WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
+      BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING
+    };
+
+    for (int i = 0; i < 12; ++i)
     {
-      int cur = pos.getPiece(i);
-      if (cur != 0)
+      uint64_t bitboard = pos.getBitboard(pieces[i]);
+      while (bitboard != 0)
       {
-        hash ^= zobrist_board[i * 12 + pieceIndex(cur)];
+        const int square = popLeastSignificantBit(bitboard);
+        hash ^= zobrist_board[square * 12 + pieceIndex(pieces[i])];
       }
     }
     if (pos.isWhiteToMove())

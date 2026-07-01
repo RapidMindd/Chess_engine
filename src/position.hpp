@@ -2,6 +2,7 @@
 #define POSITION_HPP
 
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <string>
 
@@ -35,7 +36,11 @@ namespace chess
   struct Position
   {
   private:
-    Piece board_[64];
+    uint64_t pieceBitboards_[12];
+    uint64_t whitePieces_;
+    uint64_t blackPieces_;
+    uint64_t occupied_;
+    Piece squarePieces_[64];
     bool whiteToMove_;
 
     bool whiteKingCastling_ = 0;
@@ -47,6 +52,13 @@ namespace chess
 
     int whiteKingSquare_ = -1;
     int blackKingSquare_ = -1;
+
+    static int bitboardIndex(Piece piece) noexcept;
+    static uint64_t squareMask(int square) noexcept;
+
+    void addPiece(int square, Piece piece) noexcept;
+    void erasePiece(int square, Piece piece) noexcept;
+    void movePiece(int from, int to, Piece piece) noexcept;
 
   public:
     Position();
@@ -60,6 +72,11 @@ namespace chess
     void clear() noexcept;
 
     int getPiece(int square) const;
+    uint64_t getBitboard(Piece piece) const noexcept;
+    uint64_t getWhitePieces() const noexcept;
+    uint64_t getBlackPieces() const noexcept;
+    uint64_t getOccupied() const noexcept;
+    uint64_t getSidePieces(bool white) const noexcept;
     int getEnPassantSquare() const;
     int getOppositeColourKingSquare() const;
     int getCurentColourKingSquare() const;
@@ -76,7 +93,6 @@ namespace chess
 
     void print() const;
 
-    // для тестов
     void placePiece(int square, Piece piece);
     void removePiece(int square);
     void setEnPassantSquare(int square);

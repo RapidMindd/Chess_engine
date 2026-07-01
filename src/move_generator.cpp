@@ -2,14 +2,219 @@
 
 namespace chess
 {
+  namespace
+  {
+    struct AttackTables
+    {
+      uint64_t knight_[64];
+      uint64_t king_[64];
+      uint64_t whitePawn_[64];
+      uint64_t blackPawn_[64];
+      uint64_t rays_[64][8];
+
+      AttackTables()
+      {
+        const int knight_rows[8] = {2, 1, -1, -2, -2, -1, 1, 2};
+        const int knight_cols[8] = {1, 2, 2, 1, -1, -2, -2, -1};
+        const int king_rows[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+        const int king_cols[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+        const int ray_rows[8] = {1, -1, 0, 0, 1, -1, -1, 1};
+        const int ray_cols[8] = {0, 0, 1, -1, 1, 1, -1, -1};
+
+        for (int square = 0; square < 64; ++square)
+        {
+          knight_[square] = 0;
+          king_[square] = 0;
+          whitePawn_[square] = 0;
+          blackPawn_[square] = 0;
+          for (int direction = 0; direction < 8; ++direction)
+          {
+            rays_[square][direction] = 0;
+          }
+
+          const int row = square / 8;
+          const int col = square % 8;
+
+          for (int i = 0; i < 8; ++i)
+          {
+            int new_row = row + knight_rows[i];
+            int new_col = col + knight_cols[i];
+            if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+            {
+              knight_[square] |= 1ULL << (new_row * 8 + new_col);
+            }
+
+            new_row = row + king_rows[i];
+            new_col = col + king_cols[i];
+            if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+            {
+              king_[square] |= 1ULL << (new_row * 8 + new_col);
+            }
+          }
+
+          if (row < 7)
+          {
+            if (col > 0)
+            {
+              whitePawn_[square] |= 1ULL << ((row + 1) * 8 + col - 1);
+            }
+            if (col < 7)
+            {
+              whitePawn_[square] |= 1ULL << ((row + 1) * 8 + col + 1);
+            }
+          }
+
+          if (row > 0)
+          {
+            if (col > 0)
+            {
+              blackPawn_[square] |= 1ULL << ((row - 1) * 8 + col - 1);
+            }
+            if (col < 7)
+            {
+              blackPawn_[square] |= 1ULL << ((row - 1) * 8 + col + 1);
+            }
+          }
+
+          for (int direction = 0; direction < 8; ++direction)
+          {
+            int new_row = row + ray_rows[direction];
+            int new_col = col + ray_cols[direction];
+            while (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
+            {
+              rays_[square][direction] |= 1ULL << (new_row * 8 + new_col);
+              new_row += ray_rows[direction];
+              new_col += ray_cols[direction];
+            }
+          }
+        }
+      }
+    };
+
+    const AttackTables attacks;
+
+    uint64_t squareBit(int square)
+    {
+      return 1ULL << square;
+    }
+
+    int popLeastSignificantBit(uint64_t& bitboard)
+    {
+      const int square = __builtin_ctzll(bitboard);
+      bitboard &= bitboard - 1;
+      return square;
+    }
+
+    int firstBlocker(uint64_t blockers, int direction)
+    {
+      if (direction == 0 || direction == 2 || direction == 4 || direction == 7)
+      {
+        return __builtin_ctzll(blockers);
+      }
+      return 63 - __builtin_clzll(blockers);
+    }
+
+    uint64_t ownPieces(const Position& pos, int piece)
+    {
+      return piece > 0 ? pos.getWhitePieces() : pos.getBlackPieces();
+    }
+
+    uint64_t enemyPieces(const Position& pos, int piece)
+    {
+      return piece > 0 ? pos.getBlackPieces() : pos.getWhitePieces();
+    }
+
+    void addRayMoves(const Position& pos, Square square, MoveArray& moves, int row_step, int col_step, bool captures_only)
+    {
+      const int piece = pos.getPiece(square);
+      const uint64_t own = ownPieces(pos, piece);
+      const uint64_t enemy = enemyPieces(pos, piece);
+      const uint64_t occupied = pos.getOccupied();
+      int row = square / 8 + row_step;
+      int col = square % 8 + col_step;
+
+      while (row >= 0 && row < 8 && col >= 0 && col < 8)
+      {
+        const int dest_square = row * 8 + col;
+        const uint64_t dest = squareBit(dest_square);
+        if ((own & dest) != 0)
+        {
+          break;
+        }
+        if (!captures_only || (enemy & dest) != 0)
+        {
+          moves.push({square, static_cast< Square >(dest_square)});
+        }
+        if ((occupied & dest) != 0)
+        {
+          break;
+        }
+        row += row_step;
+        col += col_step;
+      }
+    }
+
+    int countRayMoves(const Position& pos, Square square, int row_step, int col_step)
+    {
+      int count = 0;
+      const int piece = pos.getPiece(square);
+      const uint64_t own = ownPieces(pos, piece);
+      const uint64_t occupied = pos.getOccupied();
+      int row = square / 8 + row_step;
+      int col = square % 8 + col_step;
+
+      while (row >= 0 && row < 8 && col >= 0 && col < 8)
+      {
+        const int dest_square = row * 8 + col;
+        const uint64_t dest = squareBit(dest_square);
+        if ((own & dest) != 0)
+        {
+          break;
+        }
+        ++count;
+        if ((occupied & dest) != 0)
+        {
+          break;
+        }
+        row += row_step;
+        col += col_step;
+      }
+
+      return count;
+    }
+
+    Move findSlidingAttacker(const Position& pos, int square, Piece piece, const int* directions, int count)
+    {
+      const uint64_t occupied = pos.getOccupied();
+      const uint64_t attackers = pos.getBitboard(piece);
+
+      for (int i = 0; i < count; ++i)
+      {
+        const int direction = directions[i];
+        const uint64_t blockers = attacks.rays_[square][direction] & occupied;
+        if (blockers == 0)
+        {
+          continue;
+        }
+        const int from = firstBlocker(blockers, direction);
+        if ((attackers & squareBit(from)) != 0)
+        {
+          return Move{static_cast< Square >(from), static_cast< Square >(square)};
+        }
+      }
+
+      return null_move;
+    }
+  }
+
   void MoveGenerator::generateKingMoves(const Position& pos, Square square, MoveArray& moves)
   {
     constexpr int possible_moves = 8;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int piece = pos.getPiece(square);
+    const uint64_t own = ownPieces(pos, piece);
     const int row = square / 8;
     const int col = square % 8;
 
-    // начиная с клетки сверху, по часовой
     int row_offset[possible_moves] = {1, 1, 0, -1, -1, -1, 0, 1};
     int col_offset[possible_moves] = {0, 1, 1, 1, 0, -1, -1, -1};
 
@@ -20,7 +225,7 @@ namespace chess
       if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
       {
         int dest_square = new_row * 8 + new_col;
-        if (pos.getPiece(dest_square) * is_white_piece < 1)
+        if ((own & squareBit(dest_square)) == 0)
         {
           moves.push({square, static_cast< Square >(dest_square)});
         }
@@ -70,11 +275,11 @@ namespace chess
   void MoveGenerator::generateKnightMoves(const Position& pos, Square square, MoveArray& moves)
   {
     constexpr int possible_moves = 8;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int piece = pos.getPiece(square);
+    const uint64_t own = ownPieces(pos, piece);
     const int row = square / 8;
     const int col = square % 8;
 
-    // начиная с клетки сверху справа, по часовой
     int row_offset[possible_moves] = {2, 1, -1, -2, -2, -1, 1, 2};
     int col_offset[possible_moves] = {1, 2, 2, 1, -1, -2, -2, -1};
 
@@ -85,7 +290,7 @@ namespace chess
       if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
       {
         int dest_square = new_row * 8 + new_col;
-        if (pos.getPiece(dest_square) * is_white_piece < 1)
+        if ((own & squareBit(dest_square)) == 0)
         {
           moves.push({square, static_cast< Square >(dest_square)});
         }
@@ -95,120 +300,18 @@ namespace chess
 
   void MoveGenerator::generateBishopMoves(const Position& pos, Square square, MoveArray& moves)
   {
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    // вверх вправо
-    int col = (square % 8) + 1;
-    int dest_square = square + 9;
-    while (8 - col > 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square += 9;
-      ++col;
-    }
-
-    // вниз вправо
-    col = (square % 8) + 1;
-    dest_square = square - 7;
-    while (8 - col > 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square -= 7;
-      ++col;
-    }
-
-    // вниз влево
-    col = (square % 8) - 1;
-    dest_square = square - 9;
-    while (col >= 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square -= 9;
-      --col;
-    }
-
-    // вверх влево
-    col = (square % 8) - 1;
-    dest_square = square + 7;
-    while (col >= 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square += 7;
-      --col;
-    }
+    addRayMoves(pos, square, moves, 1, 1, false);
+    addRayMoves(pos, square, moves, -1, 1, false);
+    addRayMoves(pos, square, moves, -1, -1, false);
+    addRayMoves(pos, square, moves, 1, -1, false);
   }
 
   void MoveGenerator::generateRookMoves(const Position& pos, Square square, MoveArray& moves)
   {
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    // вверх
-    int dest_square = square + 8;
-    while (dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square += 8;
-    }
-
-    // вниз
-    dest_square = square - 8;
-    while (dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square -= 8;
-    }
-
-    // вправо
-    int col = (square % 8) + 1;
-    dest_square = square + 1;
-    while (8 - col > 0 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      ++dest_square;
-      ++col;
-    }
-
-    // влево
-    col = (square % 8) - 1;
-    dest_square = square - 1;
-    while (col >= 0 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      moves.push({square, static_cast< Square >(dest_square)});
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      --dest_square;
-      --col;
-    }
+    addRayMoves(pos, square, moves, 1, 0, false);
+    addRayMoves(pos, square, moves, -1, 0, false);
+    addRayMoves(pos, square, moves, 0, 1, false);
+    addRayMoves(pos, square, moves, 0, -1, false);
   }
 
   void MoveGenerator::generatePawnMoves(const Position& pos, Square square, MoveArray& moves)
@@ -221,6 +324,8 @@ namespace chess
 
     const int row = square / 8;
     const int col = square % 8;
+    const uint64_t occupied = pos.getOccupied();
+    const uint64_t enemy = is_white_piece == 1 ? pos.getBlackPieces() : pos.getWhitePieces();
 
     auto promote = [&moves, square, is_white_piece](int displacement){
         moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_QUEEN * is_white_piece)});
@@ -229,8 +334,7 @@ namespace chess
         moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_BISHOP * is_white_piece)});
     };
 
-    // ходы вперед
-    if (pos.getPiece(square + displacement) == EMPTY)
+    if ((occupied & squareBit(square + displacement)) == 0)
     {
       if (row == promotion_row)
       {
@@ -239,14 +343,13 @@ namespace chess
       else
       {
         moves.push({square, static_cast< Square >(square + displacement)});
-        if (row == start_row && pos.getPiece(square + displacement * 2) == EMPTY)
+        if (row == start_row && (occupied & squareBit(square + displacement * 2)) == 0)
         {
           moves.push({square, static_cast< Square >(square + displacement * 2)});
         }
       }
     }
 
-    // взятия
     const int take_displacements[2] = {9 * is_white_piece, 7 * is_white_piece};
     const int corner_col_for_take[2] = {is_white_piece == 1 ? 7 : 0, is_white_piece == 1 ? 0 : 7};
 
@@ -254,8 +357,8 @@ namespace chess
     {
       if (col != corner_col_for_take[i])
       {
-        const int take_piece = pos.getPiece(square + take_displacements[i]);
-        if (take_piece * is_white_piece < 0)
+        const int dest_square = square + take_displacements[i];
+        if ((enemy & squareBit(dest_square)) != 0)
         {
           if (row == promotion_row)
           {
@@ -263,13 +366,12 @@ namespace chess
           }
           else
           {
-            moves.push({square, static_cast< Square >(square + take_displacements[i])});
+            moves.push({square, static_cast< Square >(dest_square)});
           }
         }
-        // взятие на проходе
-        else if (row == enPassant_row && pos.getEnPassantSquare() == square + take_displacements[i])
+        else if (row == enPassant_row && pos.getEnPassantSquare() == dest_square)
         {
-          moves.push({square, static_cast< Square >(square + take_displacements[i]), EMPTY, true});
+          moves.push({square, static_cast< Square >(dest_square), EMPTY, true});
         }
       }
     }
@@ -325,169 +427,50 @@ namespace chess
 
   bool MoveGenerator::isSquareAttackedQuick(const Position& pos, Square square, bool byWhite)
   {
-    const int row = square / 8;
-    const int col = square % 8;
-    const int side = byWhite ? 1 : -1;
+    if (square < A1 || square > H8)
+    {
+      return false;
+    }
 
     if (byWhite)
     {
-      if (row > 0 && col > 0 && pos.getPiece(square - 9) == WHITE_PAWN) return true;
-      if (row > 0 && col < 7 && pos.getPiece(square - 7) == WHITE_PAWN) return true;
+      if ((attacks.blackPawn_[square] & pos.getBitboard(WHITE_PAWN)) != 0) return true;
+      if ((attacks.knight_[square] & pos.getBitboard(WHITE_KNIGHT)) != 0) return true;
+      if ((attacks.king_[square] & pos.getBitboard(WHITE_KING)) != 0) return true;
     }
     else
     {
-      if (row < 7 && col > 0 && pos.getPiece(square + 7) == BLACK_PAWN) return true;
-      if (row < 7 && col < 7 && pos.getPiece(square + 9) == BLACK_PAWN) return true;
+      if ((attacks.whitePawn_[square] & pos.getBitboard(BLACK_PAWN)) != 0) return true;
+      if ((attacks.knight_[square] & pos.getBitboard(BLACK_KNIGHT)) != 0) return true;
+      if ((attacks.king_[square] & pos.getBitboard(BLACK_KING)) != 0) return true;
     }
 
-    int row_offset[8] = {1, 1, 0, -1, -1, -1, 0, 1};
-    int col_offset[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+    const uint64_t occupied = pos.getOccupied();
+    const uint64_t rook_attackers = byWhite
+      ? pos.getBitboard(WHITE_ROOK) | pos.getBitboard(WHITE_QUEEN)
+      : pos.getBitboard(BLACK_ROOK) | pos.getBitboard(BLACK_QUEEN);
+    const uint64_t bishop_attackers = byWhite
+      ? pos.getBitboard(WHITE_BISHOP) | pos.getBitboard(WHITE_QUEEN)
+      : pos.getBitboard(BLACK_BISHOP) | pos.getBitboard(BLACK_QUEEN);
 
-    for (int i = 0; i < 8; ++i)
-    {
-      int new_row = row + row_offset[i];
-      int new_col = col + col_offset[i];
-      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
-      {
-        int dest_square = new_row * 8 + new_col;
-        if (pos.getPiece(dest_square) == WHITE_KING * side) return true;
-      }
-    }
+    const int rook_directions[4] = {0, 1, 2, 3};
+    const int bishop_directions[4] = {4, 5, 6, 7};
 
-    int row_offset2[8] = {2, 1, -1, -2, -2, -1, 1, 2};
-    int col_offset2[8] = {1, 2, 2, 1, -1, -2, -2, -1};
-
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 4; ++i)
     {
-      int new_row2 = row + row_offset2[i];
-      int new_col2 = col + col_offset2[i];
-      if (new_row2 >= 0 && new_row2 < 8 && new_col2 >= 0 && new_col2 < 8)
-      {
-        int dest_square = new_row2 * 8 + new_col2;
-        if (pos.getPiece(dest_square) == WHITE_KNIGHT * side) return true;
-      }
-    }
-
-    // вверх
-    int dest_square = square + 8;
-    while (dest_square <= H8 && pos.getPiece(dest_square) == EMPTY)
-    {
-      dest_square += 8;
-    }
-    if (dest_square <= H8)
-    {
-      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      const int direction = rook_directions[i];
+      const uint64_t blockers = attacks.rays_[square][direction] & occupied;
+      if (blockers != 0 && (rook_attackers & squareBit(firstBlocker(blockers, direction))) != 0)
       {
         return true;
       }
     }
 
-    // вниз
-    dest_square = square - 8;
-    while (dest_square >= A1 && pos.getPiece(dest_square) == EMPTY)
+    for (int i = 0; i < 4; ++i)
     {
-      dest_square -= 8;
-    }
-    if (dest_square >= A1)
-    {
-      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
-      {
-        return true;
-      }
-    }
-
-
-    // вправо
-    int col_temp = (square % 8) + 1;
-    dest_square = square + 1;
-    while (8 - col_temp > 0 && pos.getPiece(dest_square) == EMPTY)
-    {
-      ++dest_square;
-      ++col_temp;
-    }
-    if (8 - col_temp > 0)
-    {
-      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
-      {
-        return true;
-      }
-    }
-
-    // влево
-    col_temp = (square % 8) - 1;
-    dest_square = square - 1;
-    while (col_temp >= 0 && pos.getPiece(dest_square) == EMPTY)
-    {
-      --dest_square;
-      --col_temp;
-    }
-    if (col_temp >= 0)
-    {
-      if (pos.getPiece(dest_square) == WHITE_ROOK * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
-      {
-        return true;
-      }
-    }
-
-    // вверх вправо
-    col_temp = (square % 8) + 1;
-    dest_square = square + 9;
-    while (8 - col_temp > 0 && dest_square <= H8 && pos.getPiece(dest_square) == EMPTY)
-    {
-      dest_square += 9;
-      ++col_temp;
-    }
-    if (8 - col_temp > 0 && dest_square <= H8)
-    {
-      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
-      {
-        return true;
-      }
-    }
-
-    // вниз вправо
-    col_temp = (square % 8) + 1;
-    dest_square = square - 7;
-    while (8 - col_temp > 0 && dest_square >= A1 && pos.getPiece(dest_square) == EMPTY)
-    {
-      dest_square -= 7;
-      ++col_temp;
-    }
-    if (8 - col_temp > 0 && dest_square >= A1)
-    {
-      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
-      {
-        return true;
-      }
-    }
-
-    // вниз влево
-    col_temp = (square % 8) - 1;
-    dest_square = square - 9;
-    while (col_temp >= 0 && dest_square >= A1 && pos.getPiece(dest_square) == EMPTY)
-    {
-      dest_square -= 9;
-      --col_temp;
-    }
-    if (col_temp >= 0 && dest_square >= A1)
-    {
-      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
-      {
-        return true;
-      }
-    }
-
-    // вверх влево
-    col_temp = (square % 8) - 1;
-    dest_square = square + 7;
-    while (col_temp >= 0 && dest_square <= H8 && pos.getPiece(dest_square) == EMPTY)
-    {
-      dest_square += 7;
-      --col_temp;
-    }
-    if (col_temp >= 0 && dest_square <= H8)
-    {
-      if (pos.getPiece(dest_square) == WHITE_BISHOP * side || pos.getPiece(dest_square) == WHITE_QUEEN * side)
+      const int direction = bishop_directions[i];
+      const uint64_t blockers = attacks.rays_[square][direction] & occupied;
+      if (blockers != 0 && (bishop_attackers & squareBit(firstBlocker(blockers, direction))) != 0)
       {
         return true;
       }
@@ -499,14 +482,11 @@ namespace chess
   MoveArray MoveGenerator::generatePseudoLegalMoves(const Position& pos, bool castling)
   {
     MoveArray moves;
-    const int side_to_move = pos.isWhiteToMove() ? 1 : -1;
-    for (int i = A1; i <= H8; ++i)
+    uint64_t pieces = pos.getSidePieces(pos.isWhiteToMove());
+    while (pieces != 0)
     {
+      const int i = popLeastSignificantBit(pieces);
       const int piece = pos.getPiece(i);
-      if (piece * side_to_move <= 0)
-      {
-        continue;
-      }
       const int is_white_piece = piece > 0 ? 1 : -1;
       const int abs_piece = piece * is_white_piece;
       switch (abs_piece)
@@ -592,26 +572,25 @@ namespace chess
   {
     const int row = square / 8;
     const int col = square % 8;
-    const int pawn = WHITE_PAWN * (side > 0 ? 1 : -1);
 
     if (side == 1)
     {
-      if (row > 0 && col > 0 && pos.getPiece(square - 9) == pawn)
+      if (row > 0 && col > 0 && (pos.getBitboard(WHITE_PAWN) & squareBit(square - 9)) != 0)
       {
         return Move{static_cast< Square >(square - 9), static_cast< Square >(square)};
       }
-      if (row > 0 && col < 7 && pos.getPiece(square - 7) == pawn)
+      if (row > 0 && col < 7 && (pos.getBitboard(WHITE_PAWN) & squareBit(square - 7)) != 0)
       {
         return Move{static_cast< Square >(square - 7), static_cast< Square >(square)};
       }
     }
     else
     {
-      if (row < 7 && col > 0 && pos.getPiece(square + 7) == pawn)
+      if (row < 7 && col > 0 && (pos.getBitboard(BLACK_PAWN) & squareBit(square + 7)) != 0)
       {
         return Move{static_cast< Square >(square + 7), static_cast< Square >(square)};
       }
-      if (row < 7 && col < 7 && pos.getPiece(square + 9) == pawn)
+      if (row < 7 && col < 7 && (pos.getBitboard(BLACK_PAWN) & squareBit(square + 9)) != 0)
       {
         return Move{static_cast< Square >(square + 9), static_cast< Square >(square)};
       }
@@ -625,6 +604,7 @@ namespace chess
     const int row = square / 8;
     const int col = square % 8;
     const int knight = WHITE_KNIGHT * (side > 0 ? 1 : -1);
+    const uint64_t knights = pos.getBitboard(static_cast< Piece >(knight));
     const int row_offset[8] = {2, 1, -1, -2, -2, -1, 1, 2};
     const int col_offset[8] = {1, 2, 2, 1, -1, -2, -2, -1};
 
@@ -635,7 +615,7 @@ namespace chess
       if (cur_row >= 0 && cur_row < 8 && cur_col >= 0 && cur_col < 8)
       {
         int from = cur_row * 8 + cur_col;
-        if (pos.getPiece(from) == knight)
+        if ((knights & squareBit(from)) != 0)
         {
           return Move{static_cast< Square >(from), static_cast< Square >(square)};
         }
@@ -647,223 +627,20 @@ namespace chess
 
   Move MoveGenerator::findBishopAttacker(const Position& pos, int square, int side)
   {
-    const int bishop = WHITE_BISHOP * (side > 0 ? 1 : -1);
-
-    // вверх вправо
-    int col = (square % 8) + 1;
-    int from = square + 9;
-    while (8 - col > 0 && from <= H8 && pos.getPiece(from) == EMPTY)
-    {
-      from += 9;
-      ++col;
-    }
-    if (8 - col > 0 && from <= H8 && pos.getPiece(from) == bishop)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вниз вправо
-    col = (square % 8) + 1;
-    from = square - 7;
-    while (8 - col > 0 && from >= A1 && pos.getPiece(from) == EMPTY)
-    {
-      from -= 7;
-      ++col;
-    }
-    if (8 - col > 0 && from >= A1 && pos.getPiece(from) == bishop)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вниз влево
-    col = (square % 8) - 1;
-    from = square - 9;
-    while (col >= 0 && from >= A1 && pos.getPiece(from) == EMPTY)
-    {
-      from -= 9;
-      --col;
-    }
-    if (col >= 0 && from >= A1 && pos.getPiece(from) == bishop)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вверх влево
-    col = (square % 8) - 1;
-    from = square + 7;
-    while (col >= 0 && from <= H8 && pos.getPiece(from) == EMPTY)
-    {
-      from += 7;
-      --col;
-    }
-    if (col >= 0 && from <= H8 && pos.getPiece(from) == bishop)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    return null_move;
+    const int directions[4] = {4, 5, 6, 7};
+    return findSlidingAttacker(pos, square, static_cast< Piece >(WHITE_BISHOP * (side > 0 ? 1 : -1)), directions, 4);
   }
 
   Move MoveGenerator::findRookAttacker(const Position& pos, int square, int side)
   {
-    const int rook = WHITE_ROOK * (side > 0 ? 1 : -1);
-
-    // вверх
-    int from = square + 8;
-    while (from <= H8 && pos.getPiece(from) == EMPTY)
-    {
-      from += 8;
-    }
-    if (from <= H8 && pos.getPiece(from) == rook)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вниз
-    from = square - 8;
-    while (from >= A1 && pos.getPiece(from) == EMPTY)
-    {
-      from -= 8;
-    }
-    if (from >= A1 && pos.getPiece(from) == rook)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вправо
-    int col = (square % 8) + 1;
-    from = square + 1;
-    while (8 - col > 0 && pos.getPiece(from) == EMPTY)
-    {
-      ++from;
-      ++col;
-    }
-    if (8 - col > 0 && pos.getPiece(from) == rook)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // влево
-    col = (square % 8) - 1;
-    from = square - 1;
-    while (col >= 0 && pos.getPiece(from) == EMPTY)
-    {
-      --from;
-      --col;
-    }
-    if (col >= 0 && pos.getPiece(from) == rook)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    return null_move;
+    const int directions[4] = {0, 1, 2, 3};
+    return findSlidingAttacker(pos, square, static_cast< Piece >(WHITE_ROOK * (side > 0 ? 1 : -1)), directions, 4);
   }
 
   Move MoveGenerator::findQueenAttacker(const Position& pos, int square, int side)
   {
-    const int queen = WHITE_QUEEN * (side > 0 ? 1 : -1);
-
-    // вверх
-    int from = square + 8;
-    while (from <= H8 && pos.getPiece(from) == EMPTY)
-    {
-      from += 8;
-    }
-    if (from <= H8 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вниз
-    from = square - 8;
-    while (from >= A1 && pos.getPiece(from) == EMPTY)
-    {
-      from -= 8;
-    }
-    if (from >= A1 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вправо
-    int col = (square % 8) + 1;
-    from = square + 1;
-    while (8 - col > 0 && pos.getPiece(from) == EMPTY)
-    {
-      ++from;
-      ++col;
-    }
-    if (8 - col > 0 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // влево
-    col = (square % 8) - 1;
-    from = square - 1;
-    while (col >= 0 && pos.getPiece(from) == EMPTY)
-    {
-      --from;
-      --col;
-    }
-    if (col >= 0 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вверх вправо
-    col = (square % 8) + 1;
-    from = square + 9;
-    while (8 - col > 0 && from <= H8 && pos.getPiece(from) == EMPTY)
-    {
-      from += 9;
-      ++col;
-    }
-    if (8 - col > 0 && from <= H8 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вниз вправо
-    col = (square % 8) + 1;
-    from = square - 7;
-    while (8 - col > 0 && from >= A1 && pos.getPiece(from) == EMPTY)
-    {
-      from -= 7;
-      ++col;
-    }
-    if (8 - col > 0 && from >= A1 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вниз влево
-    col = (square % 8) - 1;
-    from = square - 9;
-    while (col >= 0 && from >= A1 && pos.getPiece(from) == EMPTY)
-    {
-      from -= 9;
-      --col;
-    }
-    if (col >= 0 && from >= A1 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    // вверх влево
-    col = (square % 8) - 1;
-    from = square + 7;
-    while (col >= 0 && from <= H8 && pos.getPiece(from) == EMPTY)
-    {
-      from += 7;
-      --col;
-    }
-    if (col >= 0 && from <= H8 && pos.getPiece(from) == queen)
-    {
-      return Move{static_cast< Square >(from), static_cast< Square >(square)};
-    }
-
-    return null_move;
+    const int directions[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    return findSlidingAttacker(pos, square, static_cast< Piece >(WHITE_QUEEN * (side > 0 ? 1 : -1)), directions, 8);
   }
 
   Move MoveGenerator::findKingAttacker(const Position& pos, int square, int side)
@@ -871,6 +648,7 @@ namespace chess
     const int row = square / 8;
     const int col = square % 8;
     const int king = WHITE_KING * (side > 0 ? 1 : -1);
+    const uint64_t kings = pos.getBitboard(static_cast< Piece >(king));
     const int row_offset[8] = {1, 1, 0, -1, -1, -1, 0, 1};
     const int col_offset[8] = {0, 1, 1, 1, 0, -1, -1, -1};
 
@@ -881,7 +659,7 @@ namespace chess
       if (cur_row >= 0 && cur_row < 8 && cur_col >= 0 && cur_col < 8)
       {
         int from = cur_row * 8 + cur_col;
-        if (pos.getPiece(from) == king)
+        if ((kings & squareBit(from)) != 0)
         {
           return Move{static_cast< Square >(from), static_cast< Square >(square)};
         }
@@ -893,130 +671,28 @@ namespace chess
 
   void MoveGenerator::generateRookCaptures(const Position& pos, Square square, MoveArray& moves)
   {
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    // вверх
-    int dest_square = square + 8;
-    while (dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      dest_square += 8;
-    }
-
-    // вниз
-    dest_square = square - 8;
-    while (dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      dest_square -= 8;
-    }
-
-    // вправо
-    int col = (square % 8) + 1;
-    dest_square = square + 1;
-    while (8 - col > 0 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      ++dest_square;
-      ++col;
-    }
-
-    // влево
-    col = (square % 8) - 1;
-    dest_square = square - 1;
-    while (col >= 0 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      --dest_square;
-      --col;
-    }
+    addRayMoves(pos, square, moves, 1, 0, true);
+    addRayMoves(pos, square, moves, -1, 0, true);
+    addRayMoves(pos, square, moves, 0, 1, true);
+    addRayMoves(pos, square, moves, 0, -1, true);
   }
 
   void MoveGenerator::generateBishopCaptures(const Position& pos, Square square, MoveArray& moves)
   {
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    // вверх вправо
-    int col = (square % 8) + 1;
-    int dest_square = square + 9;
-    while (8 - col > 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      dest_square += 9;
-      ++col;
-    }
-
-    // вниз вправо
-    col = (square % 8) + 1;
-    dest_square = square - 7;
-    while (8 - col > 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      dest_square -= 7;
-      ++col;
-    }
-
-    // вниз влево
-    col = (square % 8) - 1;
-    dest_square = square - 9;
-    while (col >= 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      dest_square -= 9;
-      --col;
-    }
-
-    // вверх влево
-    col = (square % 8) - 1;
-    dest_square = square + 7;
-    while (col >= 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        moves.push({square, static_cast< Square >(dest_square)});
-        break;
-      }
-      dest_square += 7;
-      --col;
-    }
+    addRayMoves(pos, square, moves, 1, 1, true);
+    addRayMoves(pos, square, moves, -1, 1, true);
+    addRayMoves(pos, square, moves, -1, -1, true);
+    addRayMoves(pos, square, moves, 1, -1, true);
   }
 
   void MoveGenerator::generateKnightCaptures(const Position& pos, Square square, MoveArray& moves)
   {
     constexpr int possible_moves = 8;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int piece = pos.getPiece(square);
+    const uint64_t enemy = enemyPieces(pos, piece);
     const int row = square / 8;
     const int col = square % 8;
 
-    // начиная с клетки сверху справа, по часовой
     int row_offset[possible_moves] = {2, 1, -1, -2, -2, -1, 1, 2};
     int col_offset[possible_moves] = {1, 2, 2, 1, -1, -2, -2, -1};
 
@@ -1027,7 +703,7 @@ namespace chess
       if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
       {
         int dest_square = new_row * 8 + new_col;
-        if (pos.getPiece(dest_square) * is_white_piece < 0)
+        if ((enemy & squareBit(dest_square)) != 0)
         {
           moves.push({square, static_cast< Square >(dest_square)});
         }
@@ -1038,11 +714,11 @@ namespace chess
   void MoveGenerator::generateKingCaptures(const Position& pos, Square square, MoveArray& moves)
   {
     constexpr int possible_moves = 8;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
+    const int piece = pos.getPiece(square);
+    const uint64_t enemy = enemyPieces(pos, piece);
     const int row = square / 8;
     const int col = square % 8;
 
-    // начиная с клетки сверху, по часовой
     int row_offset[possible_moves] = {1, 1, 0, -1, -1, -1, 0, 1};
     int col_offset[possible_moves] = {0, 1, 1, 1, 0, -1, -1, -1};
 
@@ -1053,7 +729,7 @@ namespace chess
       if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
       {
         int dest_square = new_row * 8 + new_col;
-        if (pos.getPiece(dest_square) * is_white_piece < 0)
+        if ((enemy & squareBit(dest_square)) != 0)
         {
           moves.push({square, static_cast< Square >(dest_square)});
         }
@@ -1071,6 +747,8 @@ namespace chess
 
     const int row = square / 8;
     const int col = square % 8;
+    const uint64_t occupied = pos.getOccupied();
+    const uint64_t enemy = is_white_piece == 1 ? pos.getBlackPieces() : pos.getWhitePieces();
 
     auto promote = [&moves, square, is_white_piece](int displacement){
         moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_QUEEN * is_white_piece)});
@@ -1079,12 +757,11 @@ namespace chess
         moves.push({square, static_cast< Square >(square + displacement), static_cast< Piece >(WHITE_BISHOP * is_white_piece)});
     };
 
-    if (pos.getPiece(square + displacement) == EMPTY && row == promotion_row)
+    if ((occupied & squareBit(square + displacement)) == 0 && row == promotion_row)
     {
       promote(displacement);
     }
 
-    // взятия
     const int take_displacements[2] = {9 * is_white_piece, 7 * is_white_piece};
     const int corner_col_for_take[2] = {is_white_piece == 1 ? 7 : 0, is_white_piece == 1 ? 0 : 7};
 
@@ -1092,8 +769,8 @@ namespace chess
     {
       if (col != corner_col_for_take[i])
       {
-        const int take_piece = pos.getPiece(square + take_displacements[i]);
-        if (take_piece * is_white_piece < 0)
+        const int dest_square = square + take_displacements[i];
+        if ((enemy & squareBit(dest_square)) != 0)
         {
           if (row == promotion_row)
           {
@@ -1101,13 +778,12 @@ namespace chess
           }
           else
           {
-            moves.push({square, static_cast< Square >(square + take_displacements[i])});
+            moves.push({square, static_cast< Square >(dest_square)});
           }
         }
-        // взятие на проходе
-        else if (row == enPassant_row && pos.getEnPassantSquare() == square + take_displacements[i])
+        else if (row == enPassant_row && pos.getEnPassantSquare() == dest_square)
         {
-          moves.push({square, static_cast< Square >(square + take_displacements[i]), EMPTY, true});
+          moves.push({square, static_cast< Square >(dest_square), EMPTY, true});
         }
       }
     }
@@ -1121,14 +797,11 @@ namespace chess
 
   void MoveGenerator::generatePseudoLegalActiveMoves(const Position& pos, MoveArray& moves)
   {
-    const int side_to_move = pos.isWhiteToMove() ? 1 : -1;
-    for (int i = A1; i <= H8; ++i)
+    uint64_t pieces = pos.getSidePieces(pos.isWhiteToMove());
+    while (pieces != 0)
     {
+      const int i = popLeastSignificantBit(pieces);
       const int piece = pos.getPiece(i);
-      if (piece * side_to_move <= 0)
-      {
-        continue;
-      }
       const int is_white_piece = piece > 0 ? 1 : -1;
       const int abs_piece = piece * is_white_piece;
       switch (abs_piece)
@@ -1180,126 +853,18 @@ namespace chess
 
   int MoveGenerator::countPseudoLegalRookMoves(const Position &pos, Square square)
   {
-    int count = 0;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    // вверх
-    int dest_square = square + 8;
-    while (dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square += 8;
-    }
-
-    // вниз
-    dest_square = square - 8;
-    while (dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square -= 8;
-    }
-
-    // вправо
-    int col = (square % 8) + 1;
-    dest_square = square + 1;
-    while (8 - col > 0 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      ++dest_square;
-      ++col;
-    }
-
-    // влево
-    col = (square % 8) - 1;
-    dest_square = square - 1;
-    while (col >= 0 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      --dest_square;
-      --col;
-    }
-
-    return count;
+    return countRayMoves(pos, square, 1, 0)
+      + countRayMoves(pos, square, -1, 0)
+      + countRayMoves(pos, square, 0, 1)
+      + countRayMoves(pos, square, 0, -1);
   }
 
   int MoveGenerator::countPseudoLegalBishopMoves(const Position &pos, Square square)
   {
-    int count = 0;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    // вверх вправо
-    int col = (square % 8) + 1;
-    int dest_square = square + 9;
-    while (8 - col > 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square += 9;
-      ++col;
-    }
-
-    // вниз вправо
-    col = (square % 8) + 1;
-    dest_square = square - 7;
-    while (8 - col > 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square -= 7;
-      ++col;
-    }
-
-    // вниз влево
-    col = (square % 8) - 1;
-    dest_square = square - 9;
-    while (col >= 0 && dest_square >= A1 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square -= 9;
-      --col;
-    }
-
-    // вверх влево
-    col = (square % 8) - 1;
-    dest_square = square + 7;
-    while (col >= 0 && dest_square <= H8 && pos.getPiece(dest_square) * is_white_piece < 1)
-    {
-      ++count;
-      if (pos.getPiece(dest_square) != EMPTY)
-      {
-        break;
-      }
-      dest_square += 7;
-      --col;
-    }
-
-    return count;
+    return countRayMoves(pos, square, 1, 1)
+      + countRayMoves(pos, square, -1, 1)
+      + countRayMoves(pos, square, -1, -1)
+      + countRayMoves(pos, square, 1, -1);
   }
 
   int MoveGenerator::countPseudoLegalQueenMoves(const Position &pos, Square square)
@@ -1309,29 +874,6 @@ namespace chess
 
   int MoveGenerator::countPseudoLegalKnightMoves(const Position &pos, Square square)
   {
-    int count = 0;
-
-    const int row = square / 8;
-    const int col = square % 8;
-    const int is_white_piece = pos.getPiece(square) > 0 ? 1 : -1;
-
-    int row_offset[8] = {2, 1, -1, -2, -2, -1, 1, 2};
-    int col_offset[8] = {1, 2, 2, 1, -1, -2, -2, -1};
-
-    for (int i = 0; i < 8; ++i)
-    {
-      int new_row = row + row_offset[i];
-      int new_col = col + col_offset[i];
-      if (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8)
-      {
-        int dest_square = new_row * 8 + new_col;
-        if (pos.getPiece(dest_square) * is_white_piece < 1)
-        {
-          ++count;
-        };
-      }
-    }
-
-    return count;
+    return __builtin_popcountll(attacks.knight_[square] & ~ownPieces(pos, pos.getPiece(square)));
   }
 }

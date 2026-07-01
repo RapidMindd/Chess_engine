@@ -6,6 +6,16 @@
 
 namespace chess
 {
+  namespace
+  {
+    int popLeastSignificantBit(uint64_t& bitboard)
+    {
+      const int square = __builtin_ctzll(bitboard);
+      bitboard &= bitboard - 1;
+      return square;
+    }
+  }
+
   int Evaluator::evaluate(const Position& pos)
   {
     int eval = 0;
@@ -13,8 +23,10 @@ namespace chess
     int white_pawn_cols[8] = {};
     int black_pawn_cols[8] = {};
 
-    for (int i = A1; i <= H8; ++i)
+    uint64_t pieces = pos.getOccupied();
+    while (pieces != 0)
     {
+      const int i = popLeastSignificantBit(pieces);
       Piece cur = static_cast< Piece >(pos.getPiece(i));
       material(cur, eval);
       mobility(pos, i, cur, eval);
