@@ -92,7 +92,6 @@ namespace chess
     };
 
     const AttackTables attacks;
-
     uint64_t squareBit(int square)
     {
       return 1ULL << square;
@@ -112,6 +111,45 @@ namespace chess
         return __builtin_ctzll(blockers);
       }
       return 63 - __builtin_clzll(blockers);
+    }
+
+    uint64_t slidingAttacksFrom(int square, uint64_t occupied, int begin, int end)
+    {
+      uint64_t result = 0;
+      for (int direction = begin; direction < end; ++direction)
+      {
+        uint64_t ray = attacks.rays_[square][direction];
+        const uint64_t blockers = ray & occupied;
+        if (blockers != 0)
+        {
+          ray &= ~attacks.rays_[firstBlocker(blockers, direction)][direction];
+        }
+        result |= ray;
+      }
+      return result;
+    }
+
+    bool directionUsesRook(int direction)
+    {
+      return direction < 4;
+    }
+
+    bool isSlidingPieceForDirection(Piece piece, int direction)
+    {
+      if (piece == WHITE_QUEEN || piece == BLACK_QUEEN)
+      {
+        return true;
+      }
+      if (directionUsesRook(direction))
+      {
+        return piece == WHITE_ROOK || piece == BLACK_ROOK;
+      }
+      return piece == WHITE_BISHOP || piece == BLACK_BISHOP;
+    }
+
+    uint64_t lineMaskFromTo(int from, int to, int direction)
+    {
+      return attacks.rays_[from][direction] & ~attacks.rays_[to][direction];
     }
 
     uint64_t ownPieces(const Position& pos, int piece)
@@ -154,35 +192,6 @@ namespace chess
       }
     }
 
-    int countRayMoves(const Position& pos, Square square, int row_step, int col_step)
-    {
-      int count = 0;
-      const int piece = pos.getPiece(square);
-      const uint64_t own = ownPieces(pos, piece);
-      const uint64_t occupied = pos.getOccupied();
-      int row = square / 8 + row_step;
-      int col = square % 8 + col_step;
-
-      while (row >= 0 && row < 8 && col >= 0 && col < 8)
-      {
-        const int dest_square = row * 8 + col;
-        const uint64_t dest = squareBit(dest_square);
-        if ((own & dest) != 0)
-        {
-          break;
-        }
-        ++count;
-        if ((occupied & dest) != 0)
-        {
-          break;
-        }
-        row += row_step;
-        col += col_step;
-      }
-
-      return count;
-    }
-
     Move findSlidingAttacker(const Position& pos, int square, Piece piece, const int* directions, int count)
     {
       const uint64_t occupied = pos.getOccupied();
@@ -204,6 +213,448 @@ namespace chess
       }
 
       return null_move;
+    }
+
+    bool isSquareAttackedOnOccupancy(const Position& pos, int square, bool byWhite, uint64_t occupied,
+      uint64_t ignoredAttackers = 0)
+    {
+      if (square < A1 || square > H8)
+      {
+        return false;
+      }
+
+      if (byWhite)
+      {
+        if ((attacks.blackPawn_[square] & (pos.getBitboard(WHITE_PAWN) & ~ignoredAttackers)) != 0) return true;
+        if ((attacks.knight_[square] & (pos.getBitboard(WHITE_KNIGHT) & ~ignoredAttackers)) != 0) return true;
+        if ((attacks.king_[square] & (pos.getBitboard(WHITE_KING) & ~ignoredAttackers)) != 0) return true;
+      }
+      else
+      {
+        if ((attacks.whitePawn_[square] & (pos.getBitboard(BLACK_PAWN) & ~ignoredAttackers)) != 0) return true;
+        if ((attacks.knight_[square] & (pos.getBitboard(BLACK_KNIGHT) & ~ignoredAttackers)) != 0) return true;
+        if ((attacks.king_[square] & (pos.getBitboard(BLACK_KING) & ~ignoredAttackers)) != 0) return true;
+      }
+
+      const uint64_t rook_attackers = byWhite
+        ? (pos.getBitboard(WHITE_ROOK) | pos.getBitboard(WHITE_QUEEN)) & ~ignoredAttackers
+        : (pos.getBitboard(BLACK_ROOK) | pos.getBitboard(BLACK_QUEEN)) & ~ignoredAttackers;
+      const uint64_t bishop_attackers = byWhite
+        ? (pos.getBitboard(WHITE_BISHOP) | pos.getBitboard(WHITE_QUEEN)) & ~ignoredAttackers
+        : (pos.getBitboard(BLACK_BISHOP) | pos.getBitboard(BLACK_QUEEN)) & ~ignoredAttackers;
+
+      for (int direction = 0; direction < 4; ++direction)
+      {
+        const uint64_t blockers = attacks.rays_[square][direction] & occupied;
+        if (blockers != 0 && (rook_attackers & squareBit(firstBlocker(blockers, direction))) != 0)
+        {
+          return true;
+        }
+      }
+
+      for (int direction = 4; direction < 8; ++direction)
+      {
+        const uint64_t blockers = attacks.rays_[square][direction] & occupied;
+        if (blockers != 0 && (bishop_attackers & squareBit(firstBlocker(blockers, direction))) != 0)
+        {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    struct LegalInfo
+    {
+      bool white_;
+      int side_;
+      int kingSquare_;
+      uint64_t own_;
+      uint64_t enemy_;
+      uint64_t occupied_;
+      uint64_t checkers_;
+      uint64_t checkMask_;
+      uint64_t pinned_;
+      uint64_t pinLine_[64];
+      int checkCount_;
+      bool inCheck_;
+    };
+
+    LegalInfo buildLegalInfo(const Position& pos)
+    {
+      LegalInfo info;
+      info.white_ = pos.isWhiteToMove();
+      info.side_ = info.white_ ? 1 : -1;
+      info.kingSquare_ = info.white_ ? pos.getWhiteKingSquare() : pos.getBlackKingSquare();
+      info.own_ = pos.getSidePieces(info.white_);
+      info.enemy_ = pos.getSidePieces(!info.white_);
+      info.occupied_ = pos.getOccupied();
+      info.checkers_ = 0;
+      info.checkMask_ = ~0ULL;
+      info.pinned_ = 0;
+      info.checkCount_ = 0;
+      info.inCheck_ = false;
+
+      if (info.kingSquare_ < A1 || info.kingSquare_ > H8)
+      {
+        return info;
+      }
+
+      const uint64_t enemy_pawns = info.white_ ? pos.getBitboard(BLACK_PAWN) : pos.getBitboard(WHITE_PAWN);
+      const uint64_t enemy_knights = info.white_ ? pos.getBitboard(BLACK_KNIGHT) : pos.getBitboard(WHITE_KNIGHT);
+      const uint64_t pawn_attackers = (info.white_ ? attacks.whitePawn_[info.kingSquare_] : attacks.blackPawn_[info.kingSquare_]) & enemy_pawns;
+      const uint64_t knight_attackers = attacks.knight_[info.kingSquare_] & enemy_knights;
+
+      info.checkers_ |= pawn_attackers | knight_attackers;
+
+      for (int direction = 0; direction < 8; ++direction)
+      {
+        uint64_t blockers = attacks.rays_[info.kingSquare_][direction] & info.occupied_;
+        if (blockers == 0)
+        {
+          continue;
+        }
+
+        const int first = firstBlocker(blockers, direction);
+        const uint64_t first_bit = squareBit(first);
+        const Piece first_piece = static_cast< Piece >(pos.getPiece(first));
+        if ((info.enemy_ & first_bit) != 0)
+        {
+          if (isSlidingPieceForDirection(first_piece, direction))
+          {
+            info.checkers_ |= first_bit;
+          }
+          continue;
+        }
+
+        blockers &= ~first_bit;
+        blockers &= attacks.rays_[first][direction];
+        if (blockers == 0)
+        {
+          continue;
+        }
+
+        const int second = firstBlocker(blockers, direction);
+        const uint64_t second_bit = squareBit(second);
+        const Piece second_piece = static_cast< Piece >(pos.getPiece(second));
+        if ((info.enemy_ & second_bit) != 0 && isSlidingPieceForDirection(second_piece, direction))
+        {
+          info.pinned_ |= first_bit;
+          info.pinLine_[first] = lineMaskFromTo(info.kingSquare_, second, direction);
+        }
+      }
+
+      info.checkCount_ = __builtin_popcountll(info.checkers_);
+
+      info.inCheck_ = info.checkCount_ != 0;
+      if (info.checkCount_ == 1)
+      {
+        const int checker = __builtin_ctzll(info.checkers_);
+        info.checkMask_ = squareBit(checker);
+        const Piece checker_piece = static_cast< Piece >(pos.getPiece(checker));
+        if (checker_piece == WHITE_BISHOP || checker_piece == BLACK_BISHOP
+          || checker_piece == WHITE_ROOK || checker_piece == BLACK_ROOK
+          || checker_piece == WHITE_QUEEN || checker_piece == BLACK_QUEEN)
+        {
+          for (int direction = 0; direction < 8; ++direction)
+          {
+            if ((attacks.rays_[info.kingSquare_][direction] & squareBit(checker)) != 0)
+            {
+              info.checkMask_ = lineMaskFromTo(info.kingSquare_, checker, direction);
+              break;
+            }
+          }
+        }
+      }
+      else if (info.checkCount_ > 1)
+      {
+        info.checkMask_ = 0;
+      }
+
+      return info;
+    }
+
+    bool canMovePinnedPiece(const LegalInfo& info, int from, int to)
+    {
+      return (info.pinned_ & squareBit(from)) == 0 || (info.pinLine_[from] & squareBit(to)) != 0;
+    }
+
+    bool canMoveNonKing(const LegalInfo& info, int from, int to)
+    {
+      if (info.checkCount_ > 1)
+      {
+        return false;
+      }
+      const uint64_t to_bit = squareBit(to);
+      return (info.checkMask_ & to_bit) != 0 && canMovePinnedPiece(info, from, to);
+    }
+
+    void pushPromotions(MoveArray& moves, Square from, Square to, int side)
+    {
+      moves.push({from, to, static_cast< Piece >(WHITE_QUEEN * side)});
+      moves.push({from, to, static_cast< Piece >(WHITE_KNIGHT * side)});
+      moves.push({from, to, static_cast< Piece >(WHITE_ROOK * side)});
+      moves.push({from, to, static_cast< Piece >(WHITE_BISHOP * side)});
+    }
+
+    bool isLegalEnPassant(const Position& pos, const LegalInfo& info, int from, int to)
+    {
+      const int captured = to - 8 * info.side_;
+      uint64_t occupied = info.occupied_;
+      occupied &= ~squareBit(from);
+      occupied &= ~squareBit(captured);
+      occupied |= squareBit(to);
+      return !isSquareAttackedOnOccupancy(pos, info.kingSquare_, !info.white_, occupied, squareBit(captured));
+    }
+
+    void addLegalKingMoves(const Position& pos, const LegalInfo& info, MoveArray& moves, bool captures_only)
+    {
+      if (info.kingSquare_ < A1 || info.kingSquare_ > H8)
+      {
+        return;
+      }
+
+      const int row = info.kingSquare_ / 8;
+      const int col = info.kingSquare_ % 8;
+      const int row_offset[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+      const int col_offset[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+      const uint64_t king_bit = squareBit(info.kingSquare_);
+
+      for (int i = 0; i < 8; ++i)
+      {
+        const int new_row = row + row_offset[i];
+        const int new_col = col + col_offset[i];
+        if (new_row < 0 || new_row >= 8 || new_col < 0 || new_col >= 8)
+        {
+          continue;
+        }
+        const int to = new_row * 8 + new_col;
+        const uint64_t to_bit = squareBit(to);
+        if ((info.own_ & to_bit) != 0)
+        {
+          continue;
+        }
+        const int target_piece = pos.getPiece(to);
+        if (target_piece == WHITE_KING || target_piece == BLACK_KING)
+        {
+          continue;
+        }
+        if (captures_only && (info.enemy_ & to_bit) == 0)
+        {
+          continue;
+        }
+
+        uint64_t occupied = info.occupied_ & ~king_bit;
+        occupied |= to_bit;
+        uint64_t ignored = (info.enemy_ & to_bit) != 0 ? to_bit : 0;
+        if (!isSquareAttackedOnOccupancy(pos, to, !info.white_, occupied, ignored))
+        {
+          moves.push({static_cast< Square >(info.kingSquare_), static_cast< Square >(to)});
+        }
+      }
+    }
+
+    void addLegalCastlingMoves(const Position& pos, const LegalInfo& info, MoveArray& moves)
+    {
+      if (info.inCheck_ || info.kingSquare_ < A1 || info.kingSquare_ > H8)
+      {
+        return;
+      }
+
+      Castling rights = pos.getCastling();
+      const int square = info.kingSquare_;
+
+      if (rights.king_ && pos.getPiece(square + 1) == EMPTY && pos.getPiece(square + 2) == EMPTY
+        && !isSquareAttackedOnOccupancy(pos, square + 1, !info.white_, info.occupied_)
+        && !isSquareAttackedOnOccupancy(pos, square + 2, !info.white_, info.occupied_))
+      {
+        moves.push({static_cast< Square >(square), static_cast< Square >(square + 2), EMPTY, 0, 1});
+      }
+
+      if (rights.queen_ && pos.getPiece(square - 1) == EMPTY && pos.getPiece(square - 2) == EMPTY
+        && pos.getPiece(square - 3) == EMPTY
+        && !isSquareAttackedOnOccupancy(pos, square - 1, !info.white_, info.occupied_)
+        && !isSquareAttackedOnOccupancy(pos, square - 2, !info.white_, info.occupied_))
+      {
+        moves.push({static_cast< Square >(square), static_cast< Square >(square - 2), EMPTY, 0, 1});
+      }
+    }
+
+    void addLegalRayMoves(const LegalInfo& info, Square from, MoveArray& moves,
+      int row_step, int col_step, bool captures_only)
+    {
+      int row = from / 8 + row_step;
+      int col = from % 8 + col_step;
+
+      while (row >= 0 && row < 8 && col >= 0 && col < 8)
+      {
+        const int to = row * 8 + col;
+        const uint64_t to_bit = squareBit(to);
+        if ((info.own_ & to_bit) != 0)
+        {
+          break;
+        }
+        if ((!captures_only || (info.enemy_ & to_bit) != 0) && canMoveNonKing(info, from, to))
+        {
+          moves.push({from, static_cast< Square >(to)});
+        }
+        if ((info.occupied_ & to_bit) != 0)
+        {
+          break;
+        }
+        row += row_step;
+        col += col_step;
+      }
+    }
+
+    void addLegalKnightMoves(const LegalInfo& info, Square from, MoveArray& moves, bool captures_only)
+    {
+      if ((info.pinned_ & squareBit(from)) != 0 || info.checkCount_ > 1)
+      {
+        return;
+      }
+
+      const int row = from / 8;
+      const int col = from % 8;
+      const int row_offset[8] = {2, 1, -1, -2, -2, -1, 1, 2};
+      const int col_offset[8] = {1, 2, 2, 1, -1, -2, -2, -1};
+
+      for (int i = 0; i < 8; ++i)
+      {
+        const int new_row = row + row_offset[i];
+        const int new_col = col + col_offset[i];
+        if (new_row < 0 || new_row >= 8 || new_col < 0 || new_col >= 8)
+        {
+          continue;
+        }
+        const int to = new_row * 8 + new_col;
+        const uint64_t to_bit = squareBit(to);
+        if ((info.own_ & to_bit) != 0 || (captures_only && (info.enemy_ & to_bit) == 0))
+        {
+          continue;
+        }
+        if ((info.checkMask_ & to_bit) != 0)
+        {
+          moves.push({from, static_cast< Square >(to)});
+        }
+      }
+    }
+
+    void addLegalPawnMoves(const Position& pos, const LegalInfo& info, Square from, MoveArray& moves,
+      bool captures_only)
+    {
+      if (info.checkCount_ > 1)
+      {
+        return;
+      }
+
+      const int row = from / 8;
+      const int col = from % 8;
+      const int displacement = info.white_ ? 8 : -8;
+      const int start_row = info.white_ ? 1 : 6;
+      const int promotion_row = info.white_ ? 6 : 1;
+      const int en_passant_row = info.white_ ? 4 : 3;
+
+      if (!captures_only)
+      {
+        const int to = from + displacement;
+        if (to >= A1 && to <= H8 && (info.occupied_ & squareBit(to)) == 0)
+        {
+          if (canMoveNonKing(info, from, to))
+          {
+            if (row == promotion_row)
+            {
+              pushPromotions(moves, from, static_cast< Square >(to), info.side_);
+            }
+            else
+            {
+              moves.push({from, static_cast< Square >(to)});
+            }
+          }
+
+          const int double_to = from + displacement * 2;
+          if (row == start_row && (info.occupied_ & squareBit(double_to)) == 0
+            && canMoveNonKing(info, from, double_to))
+          {
+            moves.push({from, static_cast< Square >(double_to)});
+          }
+        }
+      }
+
+      const int take_displacements[2] = {9 * info.side_, 7 * info.side_};
+      const int corner_col_for_take[2] = {info.white_ ? 7 : 0, info.white_ ? 0 : 7};
+
+      for (int i = 0; i < 2; ++i)
+      {
+        if (col == corner_col_for_take[i])
+        {
+          continue;
+        }
+        const int to = from + take_displacements[i];
+        const uint64_t to_bit = squareBit(to);
+        if ((info.enemy_ & to_bit) != 0 && canMoveNonKing(info, from, to))
+        {
+          if (row == promotion_row)
+          {
+            pushPromotions(moves, from, static_cast< Square >(to), info.side_);
+          }
+          else
+          {
+            moves.push({from, static_cast< Square >(to)});
+          }
+        }
+        else if (row == en_passant_row && pos.getEnPassantSquare() == to
+          && isLegalEnPassant(pos, info, from, to))
+        {
+          moves.push({from, static_cast< Square >(to), EMPTY, true});
+        }
+      }
+    }
+
+    void addLegalPieceMoves(const Position& pos, const LegalInfo& info, Square from, MoveArray& moves,
+      bool captures_only)
+    {
+      const int piece = pos.getPiece(from);
+      const int abs_piece = piece > 0 ? piece : -piece;
+
+      switch (abs_piece)
+      {
+        case WHITE_KNIGHT:
+          addLegalKnightMoves(info, from, moves, captures_only);
+          break;
+        case WHITE_BISHOP:
+          addLegalRayMoves(info, from, moves, 1, 1, captures_only);
+          addLegalRayMoves(info, from, moves, -1, 1, captures_only);
+          addLegalRayMoves(info, from, moves, -1, -1, captures_only);
+          addLegalRayMoves(info, from, moves, 1, -1, captures_only);
+          break;
+        case WHITE_QUEEN:
+          addLegalRayMoves(info, from, moves, 1, 0, captures_only);
+          addLegalRayMoves(info, from, moves, -1, 0, captures_only);
+          addLegalRayMoves(info, from, moves, 0, 1, captures_only);
+          addLegalRayMoves(info, from, moves, 0, -1, captures_only);
+          addLegalRayMoves(info, from, moves, 1, 1, captures_only);
+          addLegalRayMoves(info, from, moves, -1, 1, captures_only);
+          addLegalRayMoves(info, from, moves, -1, -1, captures_only);
+          addLegalRayMoves(info, from, moves, 1, -1, captures_only);
+          break;
+        case WHITE_PAWN:
+          addLegalPawnMoves(pos, info, from, moves, captures_only);
+          break;
+        case WHITE_ROOK:
+          addLegalRayMoves(info, from, moves, 1, 0, captures_only);
+          addLegalRayMoves(info, from, moves, -1, 0, captures_only);
+          addLegalRayMoves(info, from, moves, 0, 1, captures_only);
+          addLegalRayMoves(info, from, moves, 0, -1, captures_only);
+          break;
+        case WHITE_KING:
+          addLegalKingMoves(pos, info, moves, captures_only);
+          if (!captures_only)
+          {
+            addLegalCastlingMoves(pos, info, moves);
+          }
+          break;
+      }
     }
   }
 
@@ -427,56 +878,7 @@ namespace chess
 
   bool MoveGenerator::isSquareAttackedQuick(const Position& pos, Square square, bool byWhite)
   {
-    if (square < A1 || square > H8)
-    {
-      return false;
-    }
-
-    if (byWhite)
-    {
-      if ((attacks.blackPawn_[square] & pos.getBitboard(WHITE_PAWN)) != 0) return true;
-      if ((attacks.knight_[square] & pos.getBitboard(WHITE_KNIGHT)) != 0) return true;
-      if ((attacks.king_[square] & pos.getBitboard(WHITE_KING)) != 0) return true;
-    }
-    else
-    {
-      if ((attacks.whitePawn_[square] & pos.getBitboard(BLACK_PAWN)) != 0) return true;
-      if ((attacks.knight_[square] & pos.getBitboard(BLACK_KNIGHT)) != 0) return true;
-      if ((attacks.king_[square] & pos.getBitboard(BLACK_KING)) != 0) return true;
-    }
-
-    const uint64_t occupied = pos.getOccupied();
-    const uint64_t rook_attackers = byWhite
-      ? pos.getBitboard(WHITE_ROOK) | pos.getBitboard(WHITE_QUEEN)
-      : pos.getBitboard(BLACK_ROOK) | pos.getBitboard(BLACK_QUEEN);
-    const uint64_t bishop_attackers = byWhite
-      ? pos.getBitboard(WHITE_BISHOP) | pos.getBitboard(WHITE_QUEEN)
-      : pos.getBitboard(BLACK_BISHOP) | pos.getBitboard(BLACK_QUEEN);
-
-    const int rook_directions[4] = {0, 1, 2, 3};
-    const int bishop_directions[4] = {4, 5, 6, 7};
-
-    for (int i = 0; i < 4; ++i)
-    {
-      const int direction = rook_directions[i];
-      const uint64_t blockers = attacks.rays_[square][direction] & occupied;
-      if (blockers != 0 && (rook_attackers & squareBit(firstBlocker(blockers, direction))) != 0)
-      {
-        return true;
-      }
-    }
-
-    for (int i = 0; i < 4; ++i)
-    {
-      const int direction = bishop_directions[i];
-      const uint64_t blockers = attacks.rays_[square][direction] & occupied;
-      if (blockers != 0 && (bishop_attackers & squareBit(firstBlocker(blockers, direction))) != 0)
-      {
-        return true;
-      }
-    }
-
-    return false;
+    return isSquareAttackedOnOccupancy(pos, square, byWhite, pos.getOccupied());
   }
 
   MoveArray MoveGenerator::generatePseudoLegalMoves(const Position& pos, bool castling)
@@ -522,21 +924,47 @@ namespace chess
 
   MoveArray MoveGenerator::generateLegalMoves(const Position& pos)
   {
-    MoveArray moves = generatePseudoLegalMoves(pos);
-    MoveArray legal_moves;
-    Position new_pos = pos;
-    UndoInfo undo;
-    for (int i = 0; i < moves.size(); ++i)
+    MoveArray moves;
+    LegalInfo info = buildLegalInfo(pos);
+    uint64_t pieces = info.own_;
+    if (!info.inCheck_ && info.pinned_ == 0)
     {
-      Move move = moves.get(i);
-      new_pos.makeMove(move, undo);
-      if (!isSquareAttackedQuick(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare()), new_pos.isWhiteToMove()))
+      while (pieces != 0)
       {
-        legal_moves.push(move);
+        const int from = popLeastSignificantBit(pieces);
+        const int piece = pos.getPiece(from);
+        const int abs_piece = piece > 0 ? piece : -piece;
+        switch (abs_piece)
+        {
+          case WHITE_KNIGHT:
+            generateKnightMoves(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_BISHOP:
+            generateBishopMoves(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_QUEEN:
+            generateQueenMoves(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_PAWN:
+            addLegalPawnMoves(pos, info, static_cast< Square >(from), moves, false);
+            break;
+          case WHITE_ROOK:
+            generateRookMoves(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_KING:
+            addLegalPieceMoves(pos, info, static_cast< Square >(from), moves, false);
+            break;
+        }
       }
-      new_pos.undoMove(move, undo);
+      return moves;
     }
-    return legal_moves;
+
+    while (pieces != 0)
+    {
+      const int from = popLeastSignificantBit(pieces);
+      addLegalPieceMoves(pos, info, static_cast< Square >(from), moves, false);
+    }
+    return moves;
   }
 
   bool MoveGenerator::isMate(const Position& pos)
@@ -832,39 +1260,59 @@ namespace chess
 
   MoveArray MoveGenerator::generateActiveMoves(const Position& pos)
   {
-    MoveArray active_moves;
-    MoveArray legal_moves;
-    Position new_pos = pos;
-    UndoInfo undo;
-    generatePseudoLegalActiveMoves(pos, active_moves);
-
-    for (int i = 0; i < active_moves.size(); ++i)
+    MoveArray moves;
+    LegalInfo info = buildLegalInfo(pos);
+    uint64_t pieces = info.own_;
+    if (!info.inCheck_ && info.pinned_ == 0)
     {
-      Move curr = active_moves.get(i);
-      new_pos.makeMove(curr, undo);
-      if (!isSquareAttackedQuick(new_pos, static_cast< Square >(new_pos.getOppositeColourKingSquare()), new_pos.isWhiteToMove()))
+      while (pieces != 0)
       {
-        legal_moves.push(curr);
+        const int from = popLeastSignificantBit(pieces);
+        const int piece = pos.getPiece(from);
+        const int abs_piece = piece > 0 ? piece : -piece;
+        switch (abs_piece)
+        {
+          case WHITE_KNIGHT:
+            generateKnightCaptures(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_BISHOP:
+            generateBishopCaptures(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_QUEEN:
+            generateQueenCaptures(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_PAWN:
+            addLegalPawnMoves(pos, info, static_cast< Square >(from), moves, true);
+            break;
+          case WHITE_ROOK:
+            generateRookCaptures(pos, static_cast< Square >(from), moves);
+            break;
+          case WHITE_KING:
+            addLegalPieceMoves(pos, info, static_cast< Square >(from), moves, true);
+            break;
+        }
       }
-      new_pos.undoMove(curr, undo);
+      return moves;
     }
-    return legal_moves;
+
+    while (pieces != 0)
+    {
+      const int from = popLeastSignificantBit(pieces);
+      addLegalPieceMoves(pos, info, static_cast< Square >(from), moves, true);
+    }
+    return moves;
   }
 
   int MoveGenerator::countPseudoLegalRookMoves(const Position &pos, Square square)
   {
-    return countRayMoves(pos, square, 1, 0)
-      + countRayMoves(pos, square, -1, 0)
-      + countRayMoves(pos, square, 0, 1)
-      + countRayMoves(pos, square, 0, -1);
+    return __builtin_popcountll(slidingAttacksFrom(square, pos.getOccupied(), 0, 4)
+      & ~ownPieces(pos, pos.getPiece(square)));
   }
 
   int MoveGenerator::countPseudoLegalBishopMoves(const Position &pos, Square square)
   {
-    return countRayMoves(pos, square, 1, 1)
-      + countRayMoves(pos, square, -1, 1)
-      + countRayMoves(pos, square, -1, -1)
-      + countRayMoves(pos, square, 1, -1);
+    return __builtin_popcountll(slidingAttacksFrom(square, pos.getOccupied(), 4, 8)
+      & ~ownPieces(pos, pos.getPiece(square)));
   }
 
   int MoveGenerator::countPseudoLegalQueenMoves(const Position &pos, Square square)

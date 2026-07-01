@@ -147,7 +147,7 @@ namespace chess
       }
     }
 
-    MoveArray moves = gen.generatePseudoLegalMoves(pos);
+    MoveArray moves = gen.generateLegalMoves(pos);
 
     rateMoves(moves, pos, tt_move);
 
@@ -155,8 +155,7 @@ namespace chess
     int eval = MIN;
     UndoInfo undo;
     Move best = null_move;
-    bool side = !pos.isWhiteToMove();
-    bool no_moves = true;
+    bool no_moves = moves.empty();
     int move_number = 0;
     for (int i = 0; i < moves.size(); ++i)
     {
@@ -165,12 +164,6 @@ namespace chess
       bool can_reduce = canReduceMove(pos, move, depth, move_number);
       uint64_t cur_hash = incrementZobristHash(hash, pos, move);
       pos.makeMove(move, undo);
-      if (gen.isSquareAttackedQuick(pos, static_cast< Square >(pos.getOppositeColourKingSquare()), side))
-      {
-        pos.undoMove(move, undo);
-        continue;
-      }
-      no_moves = false;
       ++nodes.nnodes;
       int reduction = can_reduce ? getLMRReduction(depth, move_number) : 0;
       int curr_eval = -negamax(pos, depth - 1 - reduction, -beta, -alpha, ply + 1, nodes, cur_hash);
@@ -233,7 +226,7 @@ namespace chess
     MoveGenerator gen;
     if (gen.isCheck(pos))
     {
-      moves = gen.generatePseudoLegalMoves(pos);
+      moves = gen.generateLegalMoves(pos);
     }
 
     else

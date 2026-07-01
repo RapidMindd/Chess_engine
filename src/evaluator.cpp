@@ -23,16 +23,100 @@ namespace chess
     int white_pawn_cols[8] = {};
     int black_pawn_cols[8] = {};
 
-    uint64_t pieces = pos.getOccupied();
+    uint64_t pieces = pos.getBitboard(WHITE_PAWN);
     while (pieces != 0)
     {
       const int i = popLeastSignificantBit(pieces);
-      Piece cur = static_cast< Piece >(pos.getPiece(i));
-      material(cur, eval);
-      mobility(pos, i, cur, eval);
-      piece_square_tables(i, cur, eval);
-      pawn_structure_fill(cur, i, white_pawn_cols, black_pawn_cols);
+      eval += weights[WHITE_PAWN] + pawn_table[i];
+      ++white_pawn_cols[i % 8];
     }
+
+    pieces = pos.getBitboard(BLACK_PAWN);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval -= weights[WHITE_PAWN] + pawn_table[i ^ 56];
+      ++black_pawn_cols[i % 8];
+    }
+
+    pieces = pos.getBitboard(WHITE_KNIGHT);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval += weights[WHITE_KNIGHT] + knight_table[i]
+        + MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(i)) * 4;
+    }
+
+    pieces = pos.getBitboard(BLACK_KNIGHT);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval -= weights[WHITE_KNIGHT] + knight_table[i ^ 56]
+        + MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(i)) * 4;
+    }
+
+    pieces = pos.getBitboard(WHITE_BISHOP);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval += weights[WHITE_BISHOP] + bishop_table[i]
+        + MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(i)) * 5;
+    }
+
+    pieces = pos.getBitboard(BLACK_BISHOP);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval -= weights[WHITE_BISHOP] + bishop_table[i ^ 56]
+        + MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(i)) * 5;
+    }
+
+    pieces = pos.getBitboard(WHITE_ROOK);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval += weights[WHITE_ROOK]
+        + MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(i)) * 2;
+    }
+
+    pieces = pos.getBitboard(BLACK_ROOK);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval -= weights[WHITE_ROOK]
+        + MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(i)) * 2;
+    }
+
+    pieces = pos.getBitboard(WHITE_QUEEN);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval += weights[WHITE_QUEEN] + queen_table[i]
+        + MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(i));
+    }
+
+    pieces = pos.getBitboard(BLACK_QUEEN);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval -= weights[WHITE_QUEEN] + queen_table[i ^ 56]
+        + MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(i));
+    }
+
+    pieces = pos.getBitboard(WHITE_KING);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval += king_table[i];
+    }
+
+    pieces = pos.getBitboard(BLACK_KING);
+    while (pieces != 0)
+    {
+      const int i = popLeastSignificantBit(pieces);
+      eval -= king_table[i ^ 56];
+    }
+
     pawn_structure_eval(white_pawn_cols, black_pawn_cols, eval);
     king_safety(pos, eval);
 
@@ -151,6 +235,8 @@ namespace chess
   {
     const int white_king_square = pos.getWhiteKingSquare();
     const int black_king_square = pos.getBlackKingSquare();
+    const uint64_t white_pawns = pos.getBitboard(WHITE_PAWN);
+    const uint64_t black_pawns = pos.getBitboard(BLACK_PAWN);
     if (white_king_square % 8 != 3 && white_king_square % 8 != 4 && white_king_square % 8 != 5)
     {
       int row = white_king_square / 8;
@@ -170,7 +256,7 @@ namespace chess
             int square = r * 8 + c;
             if (square == white_king_square)
                 continue;
-            if (pos.getPiece(square) == WHITE_PAWN)
+            if ((white_pawns & (1ULL << square)) != 0)
             {
               eval += 5;
             }
@@ -198,7 +284,7 @@ namespace chess
             int square = r * 8 + c;
             if (square == black_king_square)
                 continue;
-            if (pos.getPiece(square) == BLACK_PAWN)
+            if ((black_pawns & (1ULL << square)) != 0)
             {
               eval -= 5;
             }
