@@ -1,70 +1,85 @@
+#include <cstdlib>
+#include <iostream>
+
 #include "engine.hpp"
 #include "move.hpp"
+#include "move_generator.hpp"
 #include "piece.hpp"
 #include "position.hpp"
-#include <iostream>
 
 int main(int argc, char** argv)
 {
   using namespace chess;
 
-  const int default_depth = 7;
-  int depth = 0;
-  if (argc == 1)
+  if (argc > 4)
   {
-    depth = default_depth;
+    std::cerr << "usage: selfplay [depth] [threads] [move time ms]\n";
+    return 1;
   }
-  else if (argc > 2)
+
+  const int depth = argc > 1 ? std::atoi(argv[1]) : 8;
+  const int threads = argc > 2 ? std::atoi(argv[2]) : 1;
+  const int move_time = argc > 3 ? std::atoi(argv[3]) : 0;
+  if (depth <= 0 || threads <= 0 || move_time < 0)
   {
     std::cerr << "Invalid arguments\n";
     return 1;
   }
-  else
-  {
-    int i = 0;
-    while (argv[1][i] != '\0')
-    {
-      if (!std::isdigit(argv[1][i]) || i > 1)
-      {
-        std::cerr << "Invalid arguments\n";
-        return 1;
-      }
-      depth = depth * 10 + (argv[1][i] - '0');
-      ++i;
-    }
-  }
 
-  UndoInfo undo;
   Engine engine;
+  engine.setThreads(threads);
+
   Position pos;
   pos.setInitial();
-  int moves_without_activity = 0;
-  for (int i = 0; i < 200; ++i)
+  UndoInfo undo;
+
+  SearchLimits limits;
+  limits.depth = move_time > 0 ? 0 : depth;
+  limits.timeMs = move_time;
+
+  const char* result = "unfinished";
+  for (int ply = 0; ply < 400; ++ply)
   {
-    auto next = engine.findBestMove(pos, depth);
-    if (next.first == null_move)
+    MoveArray legal;
+    MoveGenerator::generateLegalMoves(pos, legal);
+    if (legal.empty())
     {
-      std::cout << next.second << "\n";
-      std::cout << pos << "\n";
+      result = MoveGenerator::isCheck(pos)
+        ? (pos.isWhiteToMove() ? "0-1 (black mates)" : "1-0 (white mates)")
+        : "1/2-1/2 (stalemate)";
       break;
     }
-    if (pos.getPiece(next.first.to_) == EMPTY
-      && pos.getPiece(next.first.from_) != WHITE_PAWN * (pos.isWhiteToMove() ? 1 : -1))
+    if (pos.isFiftyMoveDraw())
     {
-      ++moves_without_activity;
-    }
-    else
-    {
-      moves_without_activity = 0;
-    }
-    if (moves_without_activity >= 30)
-    {
-      std::cout << next.second << "\n";
-      std::cout << pos << "\n";
+      result = "1/2-1/2 (fifty move rule)";
       break;
     }
-    printMove(next.first, pos);
-    pos.makeMove(next.first, undo);
-    i % 2 ? std::cout << "\n" : std::cout << " ";
+    if (pos.isRepetition())
+    {
+      result = "1/2-1/2 (repetition)";
+      break;
+    }
+    if (pos.isInsufficientMaterial())
+    {
+      result = "1/2-1/2 (insufficient material)";
+      break;
+    }
+
+    const SearchResult search = engine.search(pos, limits);
+    if (search.best == null_move)
+    {
+      break;
+    }
+
+    if (pos.isWhiteToMove())
+    {
+      std::cout << ply / 2 + 1 << ". ";
+    }
+    printMove(search.best, pos);
+    std::cout << (pos.isWhiteToMove() ? " " : "\n") << std::flush;
+    pos.makeMove(search.best, undo);
   }
+
+  std::cout << "\n\n" << pos << "\n" << result << "\n";
+  return 0;
 }

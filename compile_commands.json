@@ -1,92 +1,146 @@
 [
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "apps/main.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "apps/main.cpp", "-o", "build/obj/apps/main.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "apps/main.cpp", "-o", "build/obj/apps/main.o"],
     "output": "build/obj/apps/main.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "apps/selfplay.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "apps/selfplay.cpp", "-o", "build/obj/apps/selfplay.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "apps/selfplay.cpp", "-o", "build/obj/apps/selfplay.o"],
     "output": "build/obj/apps/selfplay.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "apps/speed-bench.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "apps/speed-bench.cpp", "-o", "build/obj/apps/speed-bench.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "apps/speed-bench.cpp", "-o", "build/obj/apps/speed-bench.o"],
     "output": "build/obj/apps/speed-bench.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
+    "file": "apps/perft-main.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "apps/perft-main.cpp", "-o", "build/obj/apps/perft-main.o"],
+    "output": "build/obj/apps/perft-main.o"
+  },
+  {
+    "directory": ".",
+    "file": "apps/uci.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "apps/uci.cpp", "-o", "build/obj/apps/uci.o"],
+    "output": "build/obj/apps/uci.o"
+  },
+  {
+    "directory": ".",
+    "file": "src/bitboard.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/bitboard.cpp", "-o", "build/obj/src/bitboard.o"],
+    "output": "build/obj/src/bitboard.o"
+  },
+  {
+    "directory": ".",
     "file": "src/engine.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/engine.cpp", "-o", "build/obj/src/engine.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/engine.cpp", "-o", "build/obj/src/engine.o"],
     "output": "build/obj/src/engine.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "src/evaluator.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/evaluator.cpp", "-o", "build/obj/src/evaluator.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/evaluator.cpp", "-o", "build/obj/src/evaluator.o"],
     "output": "build/obj/src/evaluator.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "src/move.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/move.cpp", "-o", "build/obj/src/move.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/move.cpp", "-o", "build/obj/src/move.o"],
     "output": "build/obj/src/move.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "src/move_generator.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/move_generator.cpp", "-o", "build/obj/src/move_generator.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/move_generator.cpp", "-o", "build/obj/src/move_generator.o"],
     "output": "build/obj/src/move_generator.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
+    "file": "src/perft.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/perft.cpp", "-o", "build/obj/src/perft.o"],
+    "output": "build/obj/src/perft.o"
+  },
+  {
+    "directory": ".",
     "file": "src/piece.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/piece.cpp", "-o", "build/obj/src/piece.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/piece.cpp", "-o", "build/obj/src/piece.o"],
     "output": "build/obj/src/piece.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
+    "file": "src/piece_square_tables.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/piece_square_tables.cpp", "-o", "build/obj/src/piece_square_tables.o"],
+    "output": "build/obj/src/piece_square_tables.o"
+  },
+  {
+    "directory": ".",
     "file": "src/position.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/position.cpp", "-o", "build/obj/src/position.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/position.cpp", "-o", "build/obj/src/position.o"],
     "output": "build/obj/src/position.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "src/transposition_table.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/transposition_table.cpp", "-o", "build/obj/src/transposition_table.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/transposition_table.cpp", "-o", "build/obj/src/transposition_table.o"],
     "output": "build/obj/src/transposition_table.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "src/zobrist.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "src/zobrist.cpp", "-o", "build/obj/src/zobrist.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "src/zobrist.cpp", "-o", "build/obj/src/zobrist.o"],
     "output": "build/obj/src/zobrist.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "tests/test-engine.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "tests/test-engine.cpp", "-o", "build/obj/tests/test-engine.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-engine.cpp", "-o", "build/obj/tests/test-engine.o"],
     "output": "build/obj/tests/test-engine.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
+    "file": "tests/test-evaluator.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-evaluator.cpp", "-o", "build/obj/tests/test-evaluator.o"],
+    "output": "build/obj/tests/test-evaluator.o"
+  },
+  {
+    "directory": ".",
     "file": "tests/test-main.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "tests/test-main.cpp", "-o", "build/obj/tests/test-main.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-main.cpp", "-o", "build/obj/tests/test-main.o"],
     "output": "build/obj/tests/test-main.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
     "file": "tests/test-move_generator.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "tests/test-move_generator.cpp", "-o", "build/obj/tests/test-move_generator.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-move_generator.cpp", "-o", "build/obj/tests/test-move_generator.o"],
     "output": "build/obj/tests/test-move_generator.o"
   },
   {
-    "directory": "/Users/yaroslav_t/Chess_engine",
+    "directory": ".",
+    "file": "tests/test-perft.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-perft.cpp", "-o", "build/obj/tests/test-perft.o"],
+    "output": "build/obj/tests/test-perft.o"
+  },
+  {
+    "directory": ".",
     "file": "tests/test-position.cpp",
-    "arguments": ["/usr/bin/g++", "-O3", "-march=native", "-flto=auto", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-I/opt/homebrew/include", "-c", "tests/test-position.cpp", "-o", "build/obj/tests/test-position.o"],
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-position.cpp", "-o", "build/obj/tests/test-position.o"],
     "output": "build/obj/tests/test-position.o"
+  },
+  {
+    "directory": ".",
+    "file": "tests/test-rh_table.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-rh_table.cpp", "-o", "build/obj/tests/test-rh_table.o"],
+    "output": "build/obj/tests/test-rh_table.o"
+  },
+  {
+    "directory": ".",
+    "file": "tests/test-search.cpp",
+    "arguments": ["g++", "-O3", "-march=native", "-flto=auto", "-fno-math-errno", "-DNDEBUG", "-Wall", "-Wextra", "-std=c++14", "-MMD", "-MP", "-Isrc", "-c", "tests/test-search.cpp", "-o", "build/obj/tests/test-search.o"],
+    "output": "build/obj/tests/test-search.o"
   }
 ]

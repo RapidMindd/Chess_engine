@@ -1,17 +1,45 @@
 #include "position.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <iostream>
+#include <sstream>
+
 #include "move.hpp"
 #include "piece.hpp"
-
-#include <sstream>
+#include "piece_square_tables.hpp"
+#include "zobrist.hpp"
 
 namespace chess
 {
-  int Position::bitboardIndex(Piece piece) noexcept
+  namespace
   {
-    return piece > 0 ? piece - 1 : 5 - piece;
+    constexpr int REPETITION_MASK = REPETITION_RING - 1;
+
+    /// castling rights that survive a move touching a given square
+    struct CastlingMasks
+    {
+      uint8_t value[64];
+
+      CastlingMasks()
+      {
+        for (int i = 0; i < 64; ++i)
+        {
+          value[i] = 15;
+        }
+        value[A1] = static_cast< uint8_t >(15 & ~WHITE_QUEEN_SIDE);
+        value[H1] = static_cast< uint8_t >(15 & ~WHITE_KING_SIDE);
+        value[E1] = static_cast< uint8_t >(15 & ~(WHITE_KING_SIDE | WHITE_QUEEN_SIDE));
+        value[A8] = static_cast< uint8_t >(15 & ~BLACK_QUEEN_SIDE);
+        value[H8] = static_cast< uint8_t >(15 & ~BLACK_KING_SIDE);
+        value[E8] = static_cast< uint8_t >(15 & ~(BLACK_KING_SIDE | BLACK_QUEEN_SIDE));
+      }
+    };
+
+    const CastlingMasks castling_masks;
   }
 
-  uint64_t Position::squareMask(int square) noexcept
+  Bitboard Position::squareMask(int square) noexcept
   {
     return 1ULL << square;
   }
@@ -23,18 +51,21 @@ namespace chess
       return;
     }
 
-    const uint64_t mask = squareMask(square);
-    pieceBitboards_[bitboardIndex(piece)] |= mask;
-    squarePieces_[square] = piece;
-    if (piece > 0)
-    {
-      whitePieces_ |= mask;
-    }
-    else
-    {
-      blackPieces_ |= mask;
-    }
+    const int index = pieceIndexOf(piece);
+    const Bitboard mask = squareMask(square);
+    pieceBitboards_[index] |= mask;
+    colorPieces_[piece > 0 ? 0 : 1] |= mask;
     occupied_ |= mask;
+    squarePieces_[square] = piece;
+
+    hash_ ^= zobrist_board[index][square];
+    midgameScore_ += midgame_table[index][square];
+    endgameScore_ += endgame_table[index][square];
+    phase_ += static_cast< int16_t >(phase_values[typeOf(piece)]);
+    if (typeOf(piece) == PAWN)
+    {
+      pawnHash_ ^= zobrist_board[index][square];
+    }
   }
 
   void Position::erasePiece(int square, Piece piece) noexcept
@@ -44,18 +75,44 @@ namespace chess
       return;
     }
 
-    const uint64_t mask = squareMask(square);
-    pieceBitboards_[bitboardIndex(piece)] &= ~mask;
-    squarePieces_[square] = EMPTY;
-    whitePieces_ &= ~mask;
-    blackPieces_ &= ~mask;
+    const int index = pieceIndexOf(piece);
+    const Bitboard mask = squareMask(square);
+    pieceBitboards_[index] &= ~mask;
+    colorPieces_[piece > 0 ? 0 : 1] &= ~mask;
     occupied_ &= ~mask;
+    squarePieces_[square] = EMPTY;
+
+    hash_ ^= zobrist_board[index][square];
+    midgameScore_ -= midgame_table[index][square];
+    endgameScore_ -= endgame_table[index][square];
+    phase_ -= static_cast< int16_t >(phase_values[typeOf(piece)]);
+    if (typeOf(piece) == PAWN)
+    {
+      pawnHash_ ^= zobrist_board[index][square];
+    }
   }
 
   void Position::movePiece(int from, int to, Piece piece) noexcept
   {
     erasePiece(from, piece);
     addPiece(to, piece);
+  }
+
+  void Position::updateCastlingRights(uint8_t new_rights) noexcept
+  {
+    if (new_rights != castlingRights_)
+    {
+      hash_ ^= zobrist_castling[castlingRights_] ^ zobrist_castling[new_rights];
+      castlingRights_ = new_rights;
+    }
+  }
+
+  void Position::recomputeDerivedState() noexcept
+  {
+    kingSquare_[0] = pieceBitboards_[pieceIndexOf(WHITE_KING)] != 0
+      ? static_cast< int8_t >(lsb(pieceBitboards_[pieceIndexOf(WHITE_KING)])) : -1;
+    kingSquare_[1] = pieceBitboards_[pieceIndexOf(BLACK_KING)] != 0
+      ? static_cast< int8_t >(lsb(pieceBitboards_[pieceIndexOf(BLACK_KING)])) : -1;
   }
 
   Position::Position()
@@ -69,24 +126,12 @@ namespace chess
     clear();
     for (auto it = pieces.begin(); it != pieces.end(); ++it)
     {
-      Square square = it->first;
-      Piece piece = it->second;
-      addPiece(square, piece);
-      if (piece == WHITE_KING)
-      {
-        whiteKingSquare_ = square;
-      }
-      else if (piece == BLACK_KING)
-      {
-        blackKingSquare_ = square;
-      }
+      addPiece(it->first, it->second);
     }
-    whiteToMove_ = whiteToMove;
-
-    whiteKingCastling_ = wkc;
-    whiteQueenCastling_ = wqc;
-    blackKingCastling_ = bkc;
-    blackQueenCastling_ = bqc;
+    setWhiteToMove(whiteToMove);
+    updateCastlingRights(static_cast< uint8_t >((wkc ? WHITE_KING_SIDE : 0) | (wqc ? WHITE_QUEEN_SIDE : 0)
+      | (bkc ? BLACK_KING_SIDE : 0) | (bqc ? BLACK_QUEEN_SIDE : 0)));
+    recomputeDerivedState();
   }
 
   Position::Position(const char* FEN)
@@ -98,16 +143,13 @@ namespace chess
     int cur_square = 56;
     for (size_t i = 0; i < section_board.size(); ++i)
     {
-      if (isdigit(section_board[i]))
+      if (isdigit(static_cast< unsigned char >(section_board[i])))
       {
         cur_square += section_board[i] - '0';
       }
-      else if (isalpha(section_board[i]))
+      else if (isalpha(static_cast< unsigned char >(section_board[i])))
       {
-        Piece piece = charToPiece(section_board[i]);
-        addPiece(cur_square, piece);
-        if (section_board[i] == 'K') whiteKingSquare_ = cur_square;
-        if (section_board[i] == 'k') blackKingSquare_ = cur_square;
+        addPiece(cur_square, charToPiece(section_board[i]));
         ++cur_square;
       }
       else
@@ -116,35 +158,43 @@ namespace chess
       }
     }
 
-    char color;
+    char color = 'w';
     stream >> color;
-    color == 'w' ? whiteToMove_ = 1 : whiteToMove_ = 0;
+    setWhiteToMove(color != 'b');
 
     std::string castlings;
     stream >> castlings;
+    uint8_t rights = 0;
     for (size_t i = 0; i < castlings.size(); ++i)
     {
       switch (castlings[i])
       {
-        case 'K': whiteKingCastling_ = 1; break;
-        case 'Q': whiteQueenCastling_ = 1; break;
-        case 'k': blackKingCastling_ = 1; break;
-        case 'q': blackQueenCastling_ = 1; break;
+        case 'K': rights |= WHITE_KING_SIDE; break;
+        case 'Q': rights |= WHITE_QUEEN_SIDE; break;
+        case 'k': rights |= BLACK_KING_SIDE; break;
+        case 'q': rights |= BLACK_QUEEN_SIDE; break;
+      }
+    }
+    updateCastlingRights(rights);
+
+    std::string en_passant_square;
+    if (stream >> en_passant_square && en_passant_square != "-" && en_passant_square.size() >= 2)
+    {
+      const int col = en_passant_square[0] - 'a';
+      const int row = en_passant_square[1] - '1';
+      if (col >= 0 && col < 8 && row >= 0 && row < 8)
+      {
+        setEnPassantSquare(row * 8 + col);
       }
     }
 
-    std::string enPassantSquare;
-    stream >> enPassantSquare;
-    if (enPassantSquare != "-")
+    int halfmove = 0;
+    if (stream >> halfmove && halfmove >= 0)
     {
-      int col = enPassantSquare[0] - 'a';
-      int row = enPassantSquare[1] - '1';
-      enPassantSquare_ = row * 8 + col;
+      halfmoveClock_ = static_cast< uint16_t >(std::min(halfmove, 200));
     }
-    else
-    {
-      enPassantSquare_ = -1;
-    }
+
+    recomputeDerivedState();
   }
 
   bool Position::operator==(const Position& another) const noexcept
@@ -156,20 +206,14 @@ namespace chess
         return false;
       }
     }
-    if (whitePieces_ != another.whitePieces_) return false;
-    if (blackPieces_ != another.blackPieces_) return false;
+    if (colorPieces_[0] != another.colorPieces_[0]) return false;
+    if (colorPieces_[1] != another.colorPieces_[1]) return false;
     if (occupied_ != another.occupied_) return false;
     if (whiteToMove_ != another.whiteToMove_) return false;
-
-    if (whiteKingCastling_ != another.whiteKingCastling_) return false;
-    if (whiteQueenCastling_ != another.whiteQueenCastling_) return false;
-    if (blackKingCastling_ != another.blackKingCastling_) return false;
-    if (blackQueenCastling_ != another.blackQueenCastling_) return false;
-
+    if (castlingRights_ != another.castlingRights_) return false;
     if (enPassantSquare_ != another.enPassantSquare_) return false;
-
-    if (whiteKingSquare_ != another.whiteKingSquare_) return false;
-    if (blackKingSquare_ != another.blackKingSquare_) return false;
+    if (kingSquare_[0] != another.kingSquare_[0]) return false;
+    if (kingSquare_[1] != another.kingSquare_[1]) return false;
 
     return true;
   }
@@ -184,105 +228,170 @@ namespace chess
     {
       squarePieces_[i] = EMPTY;
     }
-    whitePieces_ = 0;
-    blackPieces_ = 0;
+    colorPieces_[0] = 0;
+    colorPieces_[1] = 0;
     occupied_ = 0;
 
+    midgameScore_ = 0;
+    endgameScore_ = 0;
+    phase_ = 0;
+    pawnHash_ = 0;
+
     whiteToMove_ = true;
-
-    whiteKingCastling_ = false;
-    whiteQueenCastling_ = false;
-    blackKingCastling_ = false;
-    blackQueenCastling_ = false;
-
+    castlingRights_ = 0;
     enPassantSquare_ = -1;
+    kingSquare_[0] = -1;
+    kingSquare_[1] = -1;
 
-    whiteKingSquare_ = -1;
-    blackKingSquare_ = -1;
+    halfmoveClock_ = 0;
+    pliesFromNull_ = 0;
+    gamePly_ = 0;
+
+    hash_ = zobrist_side ^ zobrist_castling[0];
   }
 
   void Position::setInitial() noexcept
   {
     clear();
 
-    for (size_t i = A2; i <= H2; ++i)
+    for (int i = A2; i <= H2; ++i)
     {
       addPiece(i, WHITE_PAWN);
     }
-
-    for (size_t i = A7; i <= H7; ++i)
+    for (int i = A7; i <= H7; ++i)
     {
       addPiece(i, BLACK_PAWN);
     }
 
-    addPiece(A1, WHITE_ROOK);
-    addPiece(B1, WHITE_KNIGHT);
-    addPiece(C1, WHITE_BISHOP);
-    addPiece(D1, WHITE_QUEEN);
-    addPiece(E1, WHITE_KING);
-    addPiece(F1, WHITE_BISHOP);
-    addPiece(G1, WHITE_KNIGHT);
-    addPiece(H1, WHITE_ROOK);
+    const Piece back_rank[8] = {
+      WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN,
+      WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK
+    };
+    for (int i = 0; i < 8; ++i)
+    {
+      addPiece(A1 + i, back_rank[i]);
+      addPiece(A8 + i, static_cast< Piece >(-back_rank[i]));
+    }
 
-    addPiece(A8, BLACK_ROOK);
-    addPiece(B8, BLACK_KNIGHT);
-    addPiece(C8, BLACK_BISHOP);
-    addPiece(D8, BLACK_QUEEN);
-    addPiece(E8, BLACK_KING);
-    addPiece(F8, BLACK_BISHOP);
-    addPiece(G8, BLACK_KNIGHT);
-    addPiece(H8, BLACK_ROOK);
-
-    whiteToMove_ = true;
-
-    whiteKingCastling_ = true;
-    whiteQueenCastling_ = true;
-    blackKingCastling_ = true;
-    blackQueenCastling_ = true;
-
-    enPassantSquare_ = -1;
-
-    whiteKingSquare_ = E1;
-    blackKingSquare_ = E8;
+    updateCastlingRights(WHITE_KING_SIDE | WHITE_QUEEN_SIDE | BLACK_KING_SIDE | BLACK_QUEEN_SIDE);
+    kingSquare_[0] = E1;
+    kingSquare_[1] = E8;
   }
 
-  int Position::getPiece(int square) const
+  int Position::getPiece(int square) const noexcept
   {
     return squarePieces_[square];
   }
 
-  uint64_t Position::getBitboard(Piece piece) const noexcept
+  Bitboard Position::getBitboard(Piece piece) const noexcept
   {
     if (piece == EMPTY)
     {
       return 0;
     }
-    return pieceBitboards_[bitboardIndex(piece)];
+    return pieceBitboards_[pieceIndexOf(piece)];
   }
 
-  uint64_t Position::getWhitePieces() const noexcept
+  Bitboard Position::getPieces(int type, bool white) const noexcept
   {
-    return whitePieces_;
+    return pieceBitboards_[white ? type - 1 : type + 5];
   }
 
-  uint64_t Position::getBlackPieces() const noexcept
+  Bitboard Position::getWhitePieces() const noexcept
   {
-    return blackPieces_;
+    return colorPieces_[0];
   }
 
-  uint64_t Position::getOccupied() const noexcept
+  Bitboard Position::getBlackPieces() const noexcept
+  {
+    return colorPieces_[1];
+  }
+
+  Bitboard Position::getOccupied() const noexcept
   {
     return occupied_;
   }
 
-  uint64_t Position::getSidePieces(bool white) const noexcept
+  Bitboard Position::getSidePieces(bool white) const noexcept
   {
-    return white ? whitePieces_ : blackPieces_;
+    return colorPieces_[white ? 0 : 1];
   }
 
   bool Position::isWhiteToMove() const noexcept
   {
     return whiteToMove_;
+  }
+
+  uint64_t Position::hash() const noexcept
+  {
+    return hash_;
+  }
+
+  uint64_t Position::pawnHash() const noexcept
+  {
+    return pawnHash_;
+  }
+
+  int Position::midgameScore() const noexcept
+  {
+    return midgameScore_;
+  }
+
+  int Position::endgameScore() const noexcept
+  {
+    return endgameScore_;
+  }
+
+  int Position::phase() const noexcept
+  {
+    return phase_;
+  }
+
+  int Position::halfmoveClock() const noexcept
+  {
+    return halfmoveClock_;
+  }
+
+  int Position::nonPawnMaterial(bool white) const noexcept
+  {
+    return popcount(getPieces(KNIGHT, white)) * midgame_values[KNIGHT]
+      + popcount(getPieces(BISHOP, white)) * midgame_values[BISHOP]
+      + popcount(getPieces(ROOK, white)) * midgame_values[ROOK]
+      + popcount(getPieces(QUEEN, white)) * midgame_values[QUEEN];
+  }
+
+  bool Position::isRepetition() const noexcept
+  {
+    const int limit = std::min< int >(halfmoveClock_, pliesFromNull_);
+    const int end = std::min< int >(limit, gamePly_);
+    for (int i = 4; i <= end; i += 2)
+    {
+      if (repetitionRing_[(gamePly_ - i) & REPETITION_MASK] == hash_)
+      {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool Position::isFiftyMoveDraw() const noexcept
+  {
+    return halfmoveClock_ >= 100;
+  }
+
+  bool Position::isInsufficientMaterial() const noexcept
+  {
+    if ((pieceBitboards_[pieceIndexOf(WHITE_PAWN)] | pieceBitboards_[pieceIndexOf(BLACK_PAWN)]) != 0)
+    {
+      return false;
+    }
+    if ((pieceBitboards_[pieceIndexOf(WHITE_ROOK)] | pieceBitboards_[pieceIndexOf(BLACK_ROOK)]
+      | pieceBitboards_[pieceIndexOf(WHITE_QUEEN)] | pieceBitboards_[pieceIndexOf(BLACK_QUEEN)]) != 0)
+    {
+      return false;
+    }
+    /// only kings and at most one minor piece per side are left
+    return popcount(colorPieces_[0]) <= 2 && popcount(colorPieces_[1]) <= 2;
   }
 
   void Position::print() const
@@ -307,198 +416,312 @@ namespace chess
     return out;
   }
 
+  std::string Position::toFen() const
+  {
+    std::string fen;
+    for (int row = 7; row >= 0; --row)
+    {
+      int empty = 0;
+      for (int col = 0; col < 8; ++col)
+      {
+        const Piece piece = squarePieces_[row * 8 + col];
+        if (piece == EMPTY)
+        {
+          ++empty;
+          continue;
+        }
+        if (empty != 0)
+        {
+          fen += static_cast< char >('0' + empty);
+          empty = 0;
+        }
+        fen += pieceToChar(piece);
+      }
+      if (empty != 0)
+      {
+        fen += static_cast< char >('0' + empty);
+      }
+      if (row != 0)
+      {
+        fen += '/';
+      }
+    }
+
+    fen += whiteToMove_ ? " w " : " b ";
+    if (castlingRights_ == 0)
+    {
+      fen += '-';
+    }
+    else
+    {
+      if (castlingRights_ & WHITE_KING_SIDE) fen += 'K';
+      if (castlingRights_ & WHITE_QUEEN_SIDE) fen += 'Q';
+      if (castlingRights_ & BLACK_KING_SIDE) fen += 'k';
+      if (castlingRights_ & BLACK_QUEEN_SIDE) fen += 'q';
+    }
+
+    fen += ' ';
+    if (enPassantSquare_ < 0)
+    {
+      fen += '-';
+    }
+    else
+    {
+      fen += static_cast< char >('a' + fileOf(enPassantSquare_));
+      fen += static_cast< char >('1' + rankOf(enPassantSquare_));
+    }
+
+    fen += ' ';
+    fen += std::to_string(halfmoveClock_);
+    fen += " 1";
+    return fen;
+  }
+
   void Position::makeMove(const Move& move, UndoInfo& undo) noexcept
   {
-    const int is_white_piece = isWhiteToMove() ? 1 : -1;
-    const Piece moving_piece = static_cast< Piece >(getPiece(move.from_));
-    if (moving_piece == WHITE_KING * is_white_piece)
-    {
-      is_white_piece == 1 ? whiteKingSquare_ = move.to_ : blackKingSquare_ = move.to_;
-    }
+    const bool white = whiteToMove_;
+    const int side = white ? 1 : -1;
+    const Piece moving_piece = squarePieces_[move.from_];
+    const Piece captured_piece = move.isEnPassant_
+      ? makePiece(PAWN, !white) : squarePieces_[move.to_];
 
-    undo.capturedPiece_ = static_cast< Piece >(getPiece(move.to_));
-    erasePiece(move.from_, moving_piece);
-    erasePiece(move.to_, undo.capturedPiece_);
-    addPiece(move.to_, moving_piece);
-    whiteToMove_ = !whiteToMove_;
-
+    undo.capturedPiece_ = captured_piece;
     undo.enPassantSquare_ = enPassantSquare_;
-    enPassantSquare_ = -1;
+    undo.hash_ = hash_;
+    undo.pawnHash_ = pawnHash_;
+    undo.midgameScore_ = midgameScore_;
+    undo.endgameScore_ = endgameScore_;
+    undo.phase_ = phase_;
+    undo.halfmoveClock_ = halfmoveClock_;
+    undo.pliesFromNull_ = pliesFromNull_;
+    undo.whiteKingCastling_ = (castlingRights_ & WHITE_KING_SIDE) != 0;
+    undo.whiteQueenCastling_ = (castlingRights_ & WHITE_QUEEN_SIDE) != 0;
+    undo.blackKingCastling_ = (castlingRights_ & BLACK_KING_SIDE) != 0;
+    undo.blackQueenCastling_ = (castlingRights_ & BLACK_QUEEN_SIDE) != 0;
 
-    if (move.to_ == move.from_ + (16 * is_white_piece)
-    && getPiece(move.to_) == WHITE_PAWN * is_white_piece)
+    repetitionRing_[gamePly_ & REPETITION_MASK] = hash_;
+    ++gamePly_;
+    ++halfmoveClock_;
+    ++pliesFromNull_;
+
+    if (enPassantSquare_ >= 0)
     {
-      enPassantSquare_ = move.from_ + (8 * is_white_piece);
+      hash_ ^= zobrist_enpassant[enPassantSquare_];
+      enPassantSquare_ = -1;
     }
 
-    if (move.promotionPiece_ != EMPTY)
+    if (captured_piece != EMPTY)
     {
-      erasePiece(move.to_, moving_piece);
-      addPiece(move.to_, move.promotionPiece_);
+      erasePiece(move.isEnPassant_ ? move.to_ - 8 * side : static_cast< int >(move.to_), captured_piece);
+      halfmoveClock_ = 0;
     }
 
-    if (move.isEnPassant_)
-    {
-      erasePiece(move.to_ - (8 * is_white_piece), static_cast< Piece >(WHITE_PAWN * -is_white_piece));
-    }
+    erasePiece(move.from_, moving_piece);
+    addPiece(move.to_, move.promotionPiece_ != EMPTY ? move.promotionPiece_ : moving_piece);
 
-    undo.whiteKingCastling_ = whiteKingCastling_;
-    undo.whiteQueenCastling_ = whiteQueenCastling_;
-    undo.blackKingCastling_ = blackKingCastling_;
-    undo.blackQueenCastling_ = blackQueenCastling_;
-
-    if (move.isCastling_)
+    const int moving_type = typeOf(moving_piece);
+    if (moving_type == PAWN)
     {
-      if (move.to_ - move.from_ == 2)
+      halfmoveClock_ = 0;
+      if (move.to_ == move.from_ + 16 * side)
       {
-        movePiece(move.to_ + 1, move.to_ - 1, static_cast< Piece >(WHITE_ROOK * is_white_piece));
+        enPassantSquare_ = static_cast< int8_t >(move.from_ + 8 * side);
+        hash_ ^= zobrist_enpassant[enPassantSquare_];
       }
-      else if (move.from_ - move.to_ == 2)
+    }
+    else if (moving_type == KING)
+    {
+      kingSquare_[white ? 0 : 1] = static_cast< int8_t >(move.to_);
+      if (move.isCastling_)
       {
-        movePiece(move.to_ - 2, move.to_ + 1, static_cast< Piece >(WHITE_ROOK * is_white_piece));
+        const Piece rook = makePiece(ROOK, white);
+        if (move.to_ > move.from_)
+        {
+          movePiece(move.to_ + 1, move.to_ - 1, rook);
+        }
+        else
+        {
+          movePiece(move.to_ - 2, move.to_ + 1, rook);
+        }
       }
     }
 
-    if (move.to_ == H1 || move.from_ == H1)
-    {
-      whiteKingCastling_ = 0;
-    }
-    if (move.to_ == A1 || move.from_ == A1)
-    {
-      whiteQueenCastling_ = 0;
-    }
-    if (move.to_ == H8 || move.from_ == H8)
-    {
-      blackKingCastling_ = 0;
-    }
-    if (move.to_ == A8 || move.from_ == A8)
-    {
-      blackQueenCastling_ = 0;
-    }
-    if (move.from_ == E1)
-    {
-      whiteKingCastling_ = 0;
-      whiteQueenCastling_ = 0;
-    }
-    if (move.from_ == E8)
-    {
-      blackKingCastling_ = 0;
-      blackQueenCastling_ = 0;
-    }
+    updateCastlingRights(static_cast< uint8_t >(castlingRights_
+      & castling_masks.value[move.from_] & castling_masks.value[move.to_]));
+
+    whiteToMove_ = !white;
+    hash_ ^= zobrist_side;
   }
 
   void Position::undoMove(const Move& move, const UndoInfo& undo) noexcept
   {
-    const int is_white_piece = isWhiteToMove() ? -1 : 1;
-    const Piece piece_on_to = static_cast< Piece >(getPiece(move.to_));
-    if (piece_on_to == WHITE_KING * is_white_piece)
-    {
-      is_white_piece == 1 ? whiteKingSquare_ = move.from_ : blackKingSquare_ = move.from_;
-    }
-
-    erasePiece(move.to_, piece_on_to);
-    addPiece(move.from_, move.promotionPiece_ != EMPTY ? static_cast< Piece >(WHITE_PAWN * is_white_piece) : piece_on_to);
-    addPiece(move.to_, undo.capturedPiece_);
     whiteToMove_ = !whiteToMove_;
+    const bool white = whiteToMove_;
+    const int side = white ? 1 : -1;
 
-    enPassantSquare_ = undo.enPassantSquare_;
+    const Piece piece_on_to = squarePieces_[move.to_];
+    erasePiece(move.to_, piece_on_to);
+    const Piece original_piece = move.promotionPiece_ != EMPTY ? makePiece(PAWN, white) : piece_on_to;
+    addPiece(move.from_, original_piece);
 
-    if (move.isEnPassant_)
+    if (undo.capturedPiece_ != EMPTY)
     {
-      addPiece(move.to_ - (8 * is_white_piece), static_cast< Piece >(WHITE_PAWN * -is_white_piece));
+      addPiece(move.isEnPassant_ ? move.to_ - 8 * side : static_cast< int >(move.to_), undo.capturedPiece_);
     }
 
-    whiteKingCastling_ = undo.whiteKingCastling_;
-    whiteQueenCastling_ = undo.whiteQueenCastling_;
-    blackKingCastling_ = undo.blackKingCastling_;
-    blackQueenCastling_ = undo.blackQueenCastling_;
-
-    if (move.isCastling_)
+    if (typeOf(original_piece) == KING)
     {
-      if (move.to_ - move.from_ == 2)
+      kingSquare_[white ? 0 : 1] = static_cast< int8_t >(move.from_);
+      if (move.isCastling_)
       {
-        movePiece(move.to_ - 1, move.to_ + 1, static_cast< Piece >(WHITE_ROOK * is_white_piece));
-      }
-      else if (move.from_ - move.to_ == 2)
-      {
-        movePiece(move.to_ + 1, move.to_ - 2, static_cast< Piece >(WHITE_ROOK * is_white_piece));
+        const Piece rook = makePiece(ROOK, white);
+        if (move.to_ > move.from_)
+        {
+          movePiece(move.to_ - 1, move.to_ + 1, rook);
+        }
+        else
+        {
+          movePiece(move.to_ + 1, move.to_ - 2, rook);
+        }
       }
     }
+
+    castlingRights_ = static_cast< uint8_t >((undo.whiteKingCastling_ ? WHITE_KING_SIDE : 0)
+      | (undo.whiteQueenCastling_ ? WHITE_QUEEN_SIDE : 0)
+      | (undo.blackKingCastling_ ? BLACK_KING_SIDE : 0)
+      | (undo.blackQueenCastling_ ? BLACK_QUEEN_SIDE : 0));
+    enPassantSquare_ = static_cast< int8_t >(undo.enPassantSquare_);
+    halfmoveClock_ = undo.halfmoveClock_;
+    pliesFromNull_ = undo.pliesFromNull_;
+    hash_ = undo.hash_;
+    pawnHash_ = undo.pawnHash_;
+    midgameScore_ = undo.midgameScore_;
+    endgameScore_ = undo.endgameScore_;
+    phase_ = undo.phase_;
+    --gamePly_;
+  }
+
+  void Position::makeNullMove(UndoInfo& undo) noexcept
+  {
+    undo.capturedPiece_ = EMPTY;
+    undo.enPassantSquare_ = enPassantSquare_;
+    undo.hash_ = hash_;
+    undo.pawnHash_ = pawnHash_;
+    undo.midgameScore_ = midgameScore_;
+    undo.endgameScore_ = endgameScore_;
+    undo.phase_ = phase_;
+    undo.halfmoveClock_ = halfmoveClock_;
+    undo.pliesFromNull_ = pliesFromNull_;
+
+    repetitionRing_[gamePly_ & REPETITION_MASK] = hash_;
+    ++gamePly_;
+    ++halfmoveClock_;
+    pliesFromNull_ = 0;
+
+    if (enPassantSquare_ >= 0)
+    {
+      hash_ ^= zobrist_enpassant[enPassantSquare_];
+      enPassantSquare_ = -1;
+    }
+    whiteToMove_ = !whiteToMove_;
+    hash_ ^= zobrist_side;
+  }
+
+  void Position::undoNullMove(const UndoInfo& undo) noexcept
+  {
+    whiteToMove_ = !whiteToMove_;
+    enPassantSquare_ = static_cast< int8_t >(undo.enPassantSquare_);
+    halfmoveClock_ = undo.halfmoveClock_;
+    pliesFromNull_ = undo.pliesFromNull_;
+    hash_ = undo.hash_;
+    --gamePly_;
   }
 
   void Position::placePiece(int square, Piece piece)
   {
     removePiece(square);
     addPiece(square, piece);
-    const int is_white_piece = piece > 0 ? 1 : -1;
-    if (piece == WHITE_KING * is_white_piece)
+    if (typeOf(piece) == KING)
     {
-      is_white_piece == 1 ? whiteKingSquare_ = square : blackKingSquare_ = square;
+      kingSquare_[piece > 0 ? 0 : 1] = static_cast< int8_t >(square);
     }
   }
 
   void Position::removePiece(int square)
   {
-    Piece piece = static_cast< Piece >(getPiece(square));
-    if (piece == WHITE_KING)
+    const Piece piece = squarePieces_[square];
+    if (typeOf(piece) == KING)
     {
-      whiteKingSquare_ = -1;
-    }
-    else if (piece == BLACK_KING)
-    {
-      blackKingSquare_ = -1;
+      kingSquare_[piece > 0 ? 0 : 1] = -1;
     }
     erasePiece(square, piece);
   }
 
-  int Position::getEnPassantSquare() const
+  int Position::getEnPassantSquare() const noexcept
   {
     return enPassantSquare_;
   }
 
   void Position::setEnPassantSquare(int square)
   {
-    enPassantSquare_ = square;
+    if (enPassantSquare_ >= 0)
+    {
+      hash_ ^= zobrist_enpassant[enPassantSquare_];
+    }
+    enPassantSquare_ = static_cast< int8_t >(square);
+    if (enPassantSquare_ >= 0)
+    {
+      hash_ ^= zobrist_enpassant[enPassantSquare_];
+    }
   }
 
-  int Position::getOppositeColourKingSquare() const
+  void Position::setWhiteToMove(bool white) noexcept
   {
-    return isWhiteToMove() ? blackKingSquare_ : whiteKingSquare_;
+    if (white != whiteToMove_)
+    {
+      whiteToMove_ = white;
+      hash_ ^= zobrist_side;
+    }
   }
 
-  int Position::getCurentColourKingSquare() const
+  int Position::getOppositeColourKingSquare() const noexcept
   {
-    return isWhiteToMove() ? whiteKingSquare_ : blackKingSquare_;
+    return kingSquare_[whiteToMove_ ? 1 : 0];
   }
 
-  Castling Position::getCastling() const
+  int Position::getCurentColourKingSquare() const noexcept
+  {
+    return kingSquare_[whiteToMove_ ? 0 : 1];
+  }
+
+  Castling Position::getCastling() const noexcept
   {
     if (whiteToMove_)
     {
-      return Castling{whiteKingCastling_, whiteQueenCastling_};
+      return Castling{(castlingRights_ & WHITE_KING_SIDE) != 0, (castlingRights_ & WHITE_QUEEN_SIDE) != 0};
     }
-    return Castling{blackKingCastling_, blackQueenCastling_};
+    return Castling{(castlingRights_ & BLACK_KING_SIDE) != 0, (castlingRights_ & BLACK_QUEEN_SIDE) != 0};
   }
 
   Position Position::getToggledSideToMovePosition() const
   {
     Position new_pos = *this;
-    new_pos.whiteToMove_ = !new_pos.whiteToMove_;
+    new_pos.setWhiteToMove(!new_pos.whiteToMove_);
     return new_pos;
   }
 
-  int Position::getCastlingRights() const
+  int Position::getCastlingRights() const noexcept
   {
-    return( whiteKingCastling_ * 8) + (whiteQueenCastling_ * 4) + (blackKingCastling_ * 2) + blackQueenCastling_;
+    return castlingRights_;
   }
 
-  int Position::getWhiteKingSquare() const
+  int Position::getWhiteKingSquare() const noexcept
   {
-    return whiteKingSquare_;
+    return kingSquare_[0];
   }
 
-  int Position::getBlackKingSquare() const
+  int Position::getBlackKingSquare() const noexcept
   {
-    return blackKingSquare_;
+    return kingSquare_[1];
   }
 }

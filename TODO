@@ -3,7 +3,21 @@
 // change project structure (add folders)
 // add README
 // optimize evaluation function (1 cycle instead of several)
-add killer move in move order
-add more aggressive pruning (zero move prunin maybe)
+// add killer move in move order
+// add more aggressive pruning (zero move prunin maybe)
 // add iterative deepending
-add multithreading (at least on the first move)
+// add multithreading (at least on the first move)  -- lazy smp
+// magic bitboards
+// legal move generation without make/undo
+// fixed size transposition table with replacement
+// perft + uci
+// tapered eval, passed pawns, king safety
+// see without make/undo
+
+next:
+staged move generation (do not score the whole move list at every node)
+singular extensions
+continuation history (follow up moves, not only the counter move)
+better time management: stop early when the best move is stable
+opening book / endgame tablebases
+tune the evaluation weights with a real dataset instead of by hand

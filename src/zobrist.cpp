@@ -1,116 +1,137 @@
 #include "zobrist.hpp"
+
+#include "move.hpp"
 #include "piece.hpp"
-#include <cstdint>
-#include <random>
-#include <sys/types.h>
+#include "position.hpp"
 
 namespace chess
 {
-  uint64_t zobrist_board[64 * 12];
+  uint64_t zobrist_board[12][64];
   uint64_t zobrist_side;
   uint64_t zobrist_castling[16];
   uint64_t zobrist_enpassant[64];
 
   namespace
   {
-    int popLeastSignificantBit(uint64_t& bitboard)
+    bool initialized = false;
+
+    /// splitmix64: a fixed, self contained generator keeps the keys reproducible
+    /// across compilers and standard library versions
+    struct SplitMix64
     {
-      const int square = __builtin_ctzll(bitboard);
-      bitboard &= bitboard - 1;
-      return square;
-    }
+      uint64_t state;
+
+      uint64_t operator()()
+      {
+        state += 0x9E3779B97F4A7C15ULL;
+        uint64_t z = state;
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+        return z ^ (z >> 31);
+      }
+    };
   }
 
   void initZobristHash()
   {
-    std::mt19937_64 rng(67);
-    for (int i = 0; i < 64; i++)
+    if (initialized)
     {
-      for (int j = 0; j < 12; j++)
+      return;
+    }
+    initialized = true;
+
+    SplitMix64 rng{67};
+    for (int piece = 0; piece < 12; ++piece)
+    {
+      for (int square = 0; square < 64; ++square)
       {
-        zobrist_board[i * 12 + j] = rng();
+        zobrist_board[piece][square] = rng();
       }
     }
     zobrist_side = rng();
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < 16; ++i)
     {
       zobrist_castling[i] = rng();
     }
-    for (int i = 0; i < 64; i++)
+    for (int i = 0; i < 64; ++i)
     {
       zobrist_enpassant[i] = rng();
     }
   }
 
-  uint64_t zobristHash(const Position &pos)
+  uint64_t zobristHash(const Position& pos)
   {
     uint64_t hash = 0;
-    const Piece pieces[12] = {
-      WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
-      BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING
-    };
-
-    for (int i = 0; i < 12; ++i)
+    Bitboard occupied = pos.getOccupied();
+    while (occupied != 0)
     {
-      uint64_t bitboard = pos.getBitboard(pieces[i]);
-      while (bitboard != 0)
-      {
-        const int square = popLeastSignificantBit(bitboard);
-        hash ^= zobrist_board[square * 12 + pieceIndex(pieces[i])];
-      }
+      const int square = popLsb(occupied);
+      hash ^= zobrist_board[pieceIndexOf(pos.getPiece(square))][square];
     }
     if (pos.isWhiteToMove())
     {
       hash ^= zobrist_side;
     }
     hash ^= zobrist_castling[pos.getCastlingRights()];
-    int enPassant = pos.getEnPassantSquare();
-    if (enPassant != -1)
+    const int en_passant = pos.getEnPassantSquare();
+    if (en_passant != -1)
     {
-      hash ^= zobrist_enpassant[enPassant];
+      hash ^= zobrist_enpassant[en_passant];
     }
     return hash;
   }
 
-  uint64_t incrementZobristHash(uint64_t hash, const Position &pos, const Move &move)
+  uint64_t zobristPawnHash(const Position& pos)
+  {
+    uint64_t hash = 0;
+    Bitboard pawns = pos.getBitboard(WHITE_PAWN) | pos.getBitboard(BLACK_PAWN);
+    while (pawns != 0)
+    {
+      const int square = popLsb(pawns);
+      hash ^= zobrist_board[pieceIndexOf(pos.getPiece(square))][square];
+    }
+    return hash;
+  }
+
+  uint64_t incrementZobristHash(uint64_t hash, const Position& pos, const Move& move)
   {
     const int moving_piece = pos.getPiece(move.from_);
     const int is_white_piece = pos.isWhiteToMove() ? 1 : -1;
     const int old_en_passant = pos.getEnPassantSquare();
     const int old_castling_rights = pos.getCastlingRights();
 
-    hash ^= zobrist_board[move.from_ * 12 + pieceIndex(moving_piece)];
+    hash ^= zobrist_board[pieceIndexOf(moving_piece)][move.from_];
 
     if (move.isEnPassant_)
     {
       const int captured_square = move.to_ - (8 * is_white_piece);
       const int captured_piece = WHITE_PAWN * -is_white_piece;
-      hash ^= zobrist_board[captured_square * 12 + pieceIndex(captured_piece)];
+      hash ^= zobrist_board[pieceIndexOf(captured_piece)][captured_square];
     }
     else
     {
       const int captured_piece = pos.getPiece(move.to_);
       if (captured_piece != EMPTY)
       {
-        hash ^= zobrist_board[move.to_ * 12 + pieceIndex(captured_piece)];
+        hash ^= zobrist_board[pieceIndexOf(captured_piece)][move.to_];
       }
     }
 
     const int placed_piece = move.promotionPiece_ != EMPTY ? move.promotionPiece_ : moving_piece;
-    hash ^= zobrist_board[move.to_ * 12 + pieceIndex(placed_piece)];
+    hash ^= zobrist_board[pieceIndexOf(placed_piece)][move.to_];
 
     if (move.isCastling_)
     {
       const int rook_piece = WHITE_ROOK * is_white_piece;
       if (move.to_ - move.from_ == 2)
       {
-        hash ^= zobrist_board[(move.to_ + 1) * 12 + pieceIndex(rook_piece)];
-        hash ^= zobrist_board[(move.to_ - 1) * 12 + pieceIndex(rook_piece)];
+        hash ^= zobrist_board[pieceIndexOf(rook_piece)][move.to_ + 1];
+        hash ^= zobrist_board[pieceIndexOf(rook_piece)][move.to_ - 1];
       }
       else if (move.from_ - move.to_ == 2)
       {
-        hash ^= zobrist_board[(move.to_ - 2) * 12 + pieceIndex(rook_piece)];
-        hash ^= zobrist_board[(move.to_ + 1) * 12 + pieceIndex(rook_piece)];
+        hash ^= zobrist_board[pieceIndexOf(rook_piece)][move.to_ - 2];
+        hash ^= zobrist_board[pieceIndexOf(rook_piece)][move.to_ + 1];
       }
     }
 
@@ -120,27 +141,27 @@ namespace chess
     int new_castling_rights = old_castling_rights;
     if (move.to_ == H1 || move.from_ == H1)
     {
-      new_castling_rights &= ~8;
+      new_castling_rights &= ~WHITE_KING_SIDE;
     }
     if (move.to_ == A1 || move.from_ == A1)
     {
-      new_castling_rights &= ~4;
+      new_castling_rights &= ~WHITE_QUEEN_SIDE;
     }
     if (move.to_ == H8 || move.from_ == H8)
     {
-      new_castling_rights &= ~2;
+      new_castling_rights &= ~BLACK_KING_SIDE;
     }
     if (move.to_ == A8 || move.from_ == A8)
     {
-      new_castling_rights &= ~1;
+      new_castling_rights &= ~BLACK_QUEEN_SIDE;
     }
     if (move.from_ == E1)
     {
-      new_castling_rights &= ~(8 | 4);
+      new_castling_rights &= ~(WHITE_KING_SIDE | WHITE_QUEEN_SIDE);
     }
     if (move.from_ == E8)
     {
-      new_castling_rights &= ~(2 | 1);
+      new_castling_rights &= ~(BLACK_KING_SIDE | BLACK_QUEEN_SIDE);
     }
     hash ^= zobrist_castling[new_castling_rights];
 
@@ -149,15 +170,10 @@ namespace chess
       hash ^= zobrist_enpassant[old_en_passant];
     }
 
-    int new_en_passant = -1;
     if (move.to_ == move.from_ + (16 * is_white_piece)
       && moving_piece == WHITE_PAWN * is_white_piece)
     {
-      new_en_passant = move.from_ + (8 * is_white_piece);
-    }
-    if (new_en_passant != -1)
-    {
-      hash ^= zobrist_enpassant[new_en_passant];
+      hash ^= zobrist_enpassant[move.from_ + (8 * is_white_piece)];
     }
 
     return hash;
@@ -165,6 +181,6 @@ namespace chess
 
   int pieceIndex(int piece)
   {
-    return piece > 0 ? piece + 5 : piece + 6;
+    return pieceIndexOf(piece);
   }
 }

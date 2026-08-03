@@ -1,61 +1,42 @@
 #ifndef PIECE_SQUARE_TABLES_HPP
 #define PIECE_SQUARE_TABLES_HPP
 
+#include <cstdint>
+
 namespace chess
 {
-  constexpr int king_table[64] = {
-    20, 30, 10, -10, 0, 10, 30, 20,
-    20, 20, 0, 0, 0, 0, 20, 20,
-    -10, -20, -20, -20, -20, -20, -20, -10,
-    -20, -30, -30, -40, -40, -30, -30, -20,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30
-  };
+  /// Tapered material values (midgame / endgame), in centipawns.
+  extern const int midgame_values[7];
+  extern const int endgame_values[7];
 
-  constexpr int queen_table[64] = {
-    -20, -10, -10, -10, -10, -10, -10, -20,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -10, 0, 5, 5, 5, 5, 0, -10,
-    -5, 0, 5, 5, 5, 5, 0, -5,
-    0, 0, 5, 5, 5, 5, 0, 0,
-    0, 5, 5, 5, 5, 5, 5, -0,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -10, -10, -10, -10, -10, -10, -10, -10
-  };
+  /// Game phase contribution of every piece type; a full board is 24.
+  extern const int phase_values[7];
+  constexpr int MAX_PHASE = 24;
 
-  constexpr int knight_table[64] = {
-    -50, -40, -20, -30, -30, -20, -40, -50,
-    -40, -20, 0, 5, 5, 0, -20, -40,
-    -30, 5, 10, 15, 15, 10, 5, -30,
-    -30, 0, 15, 20, 20, 15, 0, -30,
-    -30, 5, 15, 20, 20, 15, 5, -30,
-    -30, 0, 10, 15, 15, 10, 0, -30,
-    -40, -20, 0, 0, 0, 0, -20, -40,
-    -50, -40, -30, -30, -30, -30, -40, -50,
-  };
+  /// Ready to use tables indexed by [dense piece index][square]:
+  /// 0..5 are white pawn..king, 6..11 are black pawn..king. Material value is
+  /// already folded in and black entries are negative, so a position score is
+  /// just the sum of the entries of every piece on the board.
+  extern int16_t midgame_table[12][64];
+  extern int16_t endgame_table[12][64];
 
-  constexpr int bishop_table[64] = {
-    -20, -10, -40, -10, -10, -40, -10, -20,
-    -10, 5, 0, 0, 0, 0, 5, -10,
-    -10, 10, 10, 10, 10, 10, 10, -10,
-    -10, 0, 10, 10, 10, 10, 0, -10,
-    -10, 5, 5, 10, 10, 5, 5, -10,
-    -10, 0, 5, 10, 10, 5, 0, -10,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -20, -10, -10, -10, -10, -10, -10, -20,
-  };
+  /// Same tables without the colour sign, from the point of view of the moving
+  /// side; used for cheap move ordering deltas.
+  extern int16_t midgame_psqt[7][2][64];
 
-  constexpr int pawn_table[64] = {
-    0, 0, 0, 0, 0, 0, 0, 0,
-    5, 10, 10, -25, -25, 10, 10, 5,
-    5, -5, -10, 0, 0, -10, -5, 5,
-    0, 0, 0, 25, 25, 0, 0, 0,
-    5, 5, 10, 27, 27, 10, 5, 5,
-    10, 10, 20, 30, 30, 20, 10, 10,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    0, 0, 0, 0, 0, 0, 0, 0,
-  };
+  void initPieceSquareTables();
+
+  namespace detail
+  {
+    struct PieceSquareTablesInitializer
+    {
+      PieceSquareTablesInitializer()
+      {
+        initPieceSquareTables();
+      }
+    };
+    static PieceSquareTablesInitializer piece_square_tables_initializer;
+  }
 }
+
 #endif

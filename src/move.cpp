@@ -1,41 +1,14 @@
 #include "move.hpp"
+
+#include <iostream>
+#include <stdexcept>
+
 #include "move_generator.hpp"
 #include "piece.hpp"
 #include "position.hpp"
-#include <iostream>
 
 namespace chess
 {
-  MoveArray::MoveArray():
-    size_(0)
-  {}
-
-  void MoveArray::push(const Move& move) noexcept
-  {
-    moves_[size_] = move;
-    ++size_;
-  }
-
-  const Move& MoveArray::get(int index) const noexcept
-  {
-    return moves_[index];
-  }
-
-  void MoveArray::clear() noexcept
-  {
-    size_ = 0;
-  }
-
-  int MoveArray::size() const noexcept
-  {
-    return size_;
-  }
-
-  bool MoveArray::empty() const noexcept
-  {
-    return !size_;
-  }
-
   void MoveArray::print() const
   {
     if (!empty())
@@ -51,10 +24,10 @@ namespace chess
 
   bool operator==(const Move& move1, const Move& move2)
   {
-    return (move1.from_ == move2.from_) && (move1.to_ == move2.to_)
-    && (move1.promotionPiece_ == move2.promotionPiece_)
-    && (move1.isCastling_ == move2.isCastling_)
-    && (move1.isEnPassant_ == move2.isEnPassant_);
+    return move1.from_ == move2.from_ && move1.to_ == move2.to_
+      && move1.promotionPiece_ == move2.promotionPiece_
+      && move1.isCastling_ == move2.isCastling_
+      && move1.isEnPassant_ == move2.isEnPassant_;
   }
 
   bool operator!=(const Move& move1, const Move& move2)
@@ -69,27 +42,31 @@ namespace chess
 
   std::ostream& operator<<(std::ostream& out, Square square)
   {
-    char col = 'a' + (square % 8);
-    char row = '1' + (square / 8);
+    const char col = static_cast< char >('a' + fileOf(square));
+    const char row = static_cast< char >('1' + rankOf(square));
     return out << col << row;
   }
 
   std::istream& operator>>(std::istream& in, Move& move)
   {
-    char char_from;
-    int row_from;
+    char char_from = 0;
+    int row_from = 0;
     in >> char_from >> row_from;
-    char separator;
+    char separator = 0;
     in >> separator;
-    char char_to;
-    int row_to;
+    char char_to = 0;
+    int row_to = 0;
     in >> char_to >> row_to;
 
-    if (!in) return in;
+    if (!in)
+    {
+      return in;
+    }
 
-    int col_from = char_from - 'a';
-    int col_to = char_to - 'a';
-    if (col_from > 7 || col_to > 7 || row_from > 8 || row_to > 8 || separator != '-')
+    const int col_from = char_from - 'a';
+    const int col_to = char_to - 'a';
+    if (col_from < 0 || col_from > 7 || col_to < 0 || col_to > 7
+      || row_from < 1 || row_from > 8 || row_to < 1 || row_to > 8 || separator != '-')
     {
       in.setstate(std::ios::failbit);
       return in;
@@ -97,6 +74,21 @@ namespace chess
     move = {static_cast< Square >((row_from - 1) * 8 + col_from),
       static_cast< Square >((row_to - 1) * 8 + col_to)};
     return in;
+  }
+
+  std::string moveToUci(const Move& move)
+  {
+    std::string result;
+    result += static_cast< char >('a' + fileOf(move.from_));
+    result += static_cast< char >('1' + rankOf(move.from_));
+    result += static_cast< char >('a' + fileOf(move.to_));
+    result += static_cast< char >('1' + rankOf(move.to_));
+    if (move.promotionPiece_ != EMPTY)
+    {
+      const char names[7] = {' ', 'p', 'n', 'b', 'r', 'q', 'k'};
+      result += names[typeOf(move.promotionPiece_)];
+    }
+    return result;
   }
 
   bool containsMove(const MoveArray& moves, Move move)
@@ -142,88 +134,100 @@ namespace chess
 
   Move getMove(const MoveArray& moves, Move move)
   {
-    Move returned = getMove(moves, move.from_, move.to_);
-    if (returned != Move{A1, A1})
+    const Move returned = getMove(moves, move.from_, move.to_);
+    if (returned != null_move)
     {
       return returned;
     }
     throw std::logic_error("Illegal move");
   }
 
-  void printMove(const Move& move, const Position& pos)
+  std::string moveToAlgebraic(const Move& move, const Position& pos)
   {
-    int piece = pos.getPiece(move.from_);
-    int abs_piece = piece > 0 ? piece : -piece;
-    char piece_char = pieceToChar(static_cast< Piece >(abs_piece));
-    int row = move.to_ / 8;
-    int col = move.to_ % 8;
-    if (piece_char == 'P')
-    {
-      if (pos.getPiece(move.to_) != EMPTY || move.isEnPassant_)
-      {
-        piece_char = static_cast< char >('a' + (move.from_ % 8));
-      }
-      else
-      {
-        piece_char = '\0';
-      }
-    }
-    Position copy = pos;
+    const int piece = pos.getPiece(move.from_);
+    const int piece_type = typeOf(piece);
+
+    Position after = pos;
     UndoInfo undo;
-    copy.makeMove(move, undo);
-    bool isCheck = MoveGenerator::isCheck(copy);
-    bool isMate = false;
-    if (isCheck)
-    {
-      isMate = MoveGenerator::isMate(copy);
-    }
-    char check = isCheck ? '+' : '\0';
-    char mate = isMate ? '#' : '\0';
-    if (isMate) check = '\0';
+    after.makeMove(move, undo);
+    const bool is_check = MoveGenerator::isCheck(after);
+    const bool is_mate = is_check && MoveGenerator::isMate(after);
+    const char* suffix = is_mate ? "#" : (is_check ? "+" : "");
 
     if (move.isCastling_)
     {
-      if (move.to_ - move.from_ == 2)
+      return (move.to_ > move.from_ ? std::string("0-0") : std::string("0-0-0")) + suffix;
+    }
+
+    const bool is_capture = pos.getPiece(move.to_) != EMPTY || move.isEnPassant_;
+    std::string result;
+
+    if (piece_type == PAWN)
+    {
+      if (is_capture)
       {
-        std::cout << "0-0" << check << mate;
-        return;
+        result += static_cast< char >('a' + fileOf(move.from_));
+        result += 'x';
       }
-      std::cout << "0-0-0" << check << mate;
-      return;
     }
-
-    char promotion_piece = '\0';
-    if (move.promotionPiece_ != EMPTY)
+    else
     {
-      promotion_piece = move.promotionPiece_ > 0 ? move.promotionPiece_ : -move.promotionPiece_;
-    }
+      result += pieceToChar(static_cast< Piece >(piece_type));
 
-    char file_from = '\0';
-    char col_from = '\0';
-    char hyphen = '\0';
-    if (abs_piece != WHITE_PAWN)
-    {
-      MoveArray legal_moves = MoveGenerator::generateLegalMoves(pos);
+      /// only spell out the departure square when another identical piece
+      /// could go to the same square
+      bool same_file = false;
+      bool same_rank = false;
+      bool ambiguous = false;
+      MoveArray legal_moves;
+      MoveGenerator::generateLegalMoves(pos, legal_moves);
       for (int i = 0; i < legal_moves.size(); ++i)
       {
-        Move curr_move = legal_moves.get(i);
-        if (curr_move.to_ == move.to_ && pos.getPiece(curr_move.from_) == piece)
+        const Move& other = legal_moves.get(i);
+        if (other.from_ == move.from_ || other.to_ != move.to_
+          || pos.getPiece(other.from_) != piece)
         {
-          if (curr_move.from_ % 8 != move.from_ % 8)
-          {
-            file_from = static_cast< char >('a' + (move.from_ % 8));
-          }
-          if (curr_move.from_ / 8 != move.from_ / 8)
-          {
-            col_from = (move.from_ / 8) + 1;
-          }
+          continue;
+        }
+        ambiguous = true;
+        same_file = same_file || fileOf(other.from_) == fileOf(move.from_);
+        same_rank = same_rank || rankOf(other.from_) == rankOf(move.from_);
+      }
+      if (ambiguous)
+      {
+        if (!same_file)
+        {
+          result += static_cast< char >('a' + fileOf(move.from_));
+        }
+        else if (!same_rank)
+        {
+          result += static_cast< char >('1' + rankOf(move.from_));
+        }
+        else
+        {
+          result += static_cast< char >('a' + fileOf(move.from_));
+          result += static_cast< char >('1' + rankOf(move.from_));
         }
       }
-      if (file_from || col_from) hyphen = '-';
+      if (is_capture)
+      {
+        result += 'x';
+      }
     }
 
-    char capture = (pos.getPiece(move.to_) != EMPTY || move.isCastling_) ? 'x' : '\0';
-    std::cout << piece_char << file_from << col_from << hyphen << capture << static_cast< char >('a' + col)
-      << row + 1 << promotion_piece << check << mate;
+    result += static_cast< char >('a' + fileOf(move.to_));
+    result += static_cast< char >('1' + rankOf(move.to_));
+    if (move.promotionPiece_ != EMPTY)
+    {
+      result += '=';
+      result += pieceToChar(static_cast< Piece >(typeOf(move.promotionPiece_)));
+    }
+    result += suffix;
+    return result;
+  }
+
+  void printMove(const Move& move, const Position& pos)
+  {
+    std::cout << moveToAlgebraic(move, pos);
   }
 }

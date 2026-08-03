@@ -1,296 +1,274 @@
 #include "evaluator.hpp"
+
+#include <algorithm>
+
+#include "bitboard.hpp"
 #include "move_generator.hpp"
 #include "piece.hpp"
 #include "piece_square_tables.hpp"
-#include "zobrist.hpp"
 
 namespace chess
 {
   namespace
   {
-    int popLeastSignificantBit(uint64_t& bitboard)
+    /// mobility bonus per reachable square, midgame / endgame
+    constexpr int mobility_mg[7] = {0, 0, 4, 5, 2, 1, 0};
+    constexpr int mobility_eg[7] = {0, 0, 4, 5, 4, 2, 0};
+
+    constexpr int BISHOP_PAIR_MG = 30;
+    constexpr int BISHOP_PAIR_EG = 50;
+    constexpr int ROOK_OPEN_FILE = 25;
+    constexpr int ROOK_SEMI_OPEN_FILE = 12;
+    constexpr int DOUBLED_PAWN_MG = -10;
+    constexpr int DOUBLED_PAWN_EG = -20;
+    constexpr int ISOLATED_PAWN_MG = -14;
+    constexpr int ISOLATED_PAWN_EG = -18;
+    constexpr int BACKWARD_PAWN_MG = -8;
+    constexpr int BACKWARD_PAWN_EG = -10;
+    constexpr int TEMPO = 12;
+
+    /// passed pawn bonus indexed by the rank the pawn stands on, from its side
+    constexpr int passed_mg[8] = {0, 5, 10, 20, 35, 60, 100, 0};
+    constexpr int passed_eg[8] = {0, 10, 20, 35, 60, 100, 160, 0};
+
+    /// attack weight of a piece that reaches the ring around the enemy king
+    constexpr int king_attack_weight[7] = {0, 0, 20, 20, 40, 80, 0};
+    constexpr int king_attack_scale[8] = {0, 0, 50, 75, 88, 94, 97, 99};
+
+    constexpr int PAWN_SHIELD = 12;
+    constexpr int OPEN_FILE_NEAR_KING = -20;
+
+    struct EvalTerms
     {
-      const int square = __builtin_ctzll(bitboard);
-      bitboard &= bitboard - 1;
-      return square;
+      int midgame = 0;
+      int endgame = 0;
+    };
+
+    void evaluateSide(const Position& pos, bool white, EvalTerms& terms)
+    {
+      const Bitboard occupied = pos.getOccupied();
+      const Bitboard own = pos.getSidePieces(white);
+      const Bitboard own_pawns = pos.getPieces(PAWN, white);
+      const Bitboard enemy_pawns = pos.getPieces(PAWN, !white);
+      const int enemy_king = white ? pos.getBlackKingSquare() : pos.getWhiteKingSquare();
+      const Bitboard enemy_ring = enemy_king >= 0 ? king_ring_bb[enemy_king] : 0;
+
+      /// squares attacked by enemy pawns are not real mobility
+      const Bitboard enemy_pawn_attacks = white
+        ? (shiftSouthEast(enemy_pawns) | shiftSouthWest(enemy_pawns))
+        : (shiftNorthEast(enemy_pawns) | shiftNorthWest(enemy_pawns));
+      const Bitboard mobility_area = ~own & ~enemy_pawn_attacks;
+
+      int attack_units = 0;
+      int attacker_count = 0;
+
+      Bitboard knights = pos.getPieces(KNIGHT, white);
+      while (knights != 0)
+      {
+        const int square = popLsb(knights);
+        const Bitboard attacks = knight_attacks_bb[square];
+        const int count = popcount(attacks & mobility_area);
+        terms.midgame += count * mobility_mg[KNIGHT];
+        terms.endgame += count * mobility_eg[KNIGHT];
+        if ((attacks & enemy_ring) != 0)
+        {
+          attack_units += king_attack_weight[KNIGHT];
+          ++attacker_count;
+        }
+      }
+
+      Bitboard bishops = pos.getPieces(BISHOP, white);
+      if (moreThanOne(bishops))
+      {
+        terms.midgame += BISHOP_PAIR_MG;
+        terms.endgame += BISHOP_PAIR_EG;
+      }
+      while (bishops != 0)
+      {
+        const int square = popLsb(bishops);
+        const Bitboard attacks = bishopAttacks(square, occupied);
+        const int count = popcount(attacks & mobility_area);
+        terms.midgame += count * mobility_mg[BISHOP];
+        terms.endgame += count * mobility_eg[BISHOP];
+        if ((attacks & enemy_ring) != 0)
+        {
+          attack_units += king_attack_weight[BISHOP];
+          ++attacker_count;
+        }
+      }
+
+      Bitboard rooks = pos.getPieces(ROOK, white);
+      while (rooks != 0)
+      {
+        const int square = popLsb(rooks);
+        const Bitboard attacks = rookAttacks(square, occupied);
+        const int count = popcount(attacks & mobility_area);
+        terms.midgame += count * mobility_mg[ROOK];
+        terms.endgame += count * mobility_eg[ROOK];
+
+        const Bitboard file = file_bb[fileOf(square)];
+        if ((file & own_pawns) == 0)
+        {
+          terms.midgame += (file & enemy_pawns) == 0 ? ROOK_OPEN_FILE : ROOK_SEMI_OPEN_FILE;
+        }
+        if ((attacks & enemy_ring) != 0)
+        {
+          attack_units += king_attack_weight[ROOK];
+          ++attacker_count;
+        }
+      }
+
+      Bitboard queens = pos.getPieces(QUEEN, white);
+      while (queens != 0)
+      {
+        const int square = popLsb(queens);
+        const Bitboard attacks = queenAttacks(square, occupied);
+        const int count = popcount(attacks & mobility_area);
+        terms.midgame += count * mobility_mg[QUEEN];
+        terms.endgame += count * mobility_eg[QUEEN];
+        if ((attacks & enemy_ring) != 0)
+        {
+          attack_units += king_attack_weight[QUEEN];
+          ++attacker_count;
+        }
+      }
+
+      /// a single attacker rarely means anything, several of them do
+      const int scale = king_attack_scale[std::min(attacker_count, 7)];
+      terms.midgame += attack_units * scale / 100;
+
+      /// pawn shelter of our own king
+      const int king_square = white ? pos.getWhiteKingSquare() : pos.getBlackKingSquare();
+      if (king_square >= 0)
+      {
+        const Bitboard shield = king_attacks_bb[king_square] & own_pawns;
+        terms.midgame += popcount(shield) * PAWN_SHIELD;
+
+        const int king_file = fileOf(king_square);
+        const int first = std::max(0, king_file - 1);
+        const int last = std::min(7, king_file + 1);
+        for (int file = first; file <= last; ++file)
+        {
+          if ((file_bb[file] & own_pawns) == 0)
+          {
+            terms.midgame += OPEN_FILE_NEAR_KING;
+          }
+        }
+      }
     }
+  }
+
+  Evaluator::Evaluator():
+    pawns_(new PawnHashTable())
+  {
+    for (int i = 0; i < PawnHashTable::SIZE; ++i)
+    {
+      pawns_->entries[i] = PawnHashTable::Entry();
+    }
+  }
+
+  void Evaluator::pawnStructure(const Position& pos, int& midgame, int& endgame)
+  {
+    const uint64_t key = pos.pawnHash();
+    PawnHashTable::Entry& slot = pawns_->entries[key & (PawnHashTable::SIZE - 1)];
+    if (slot.used && slot.key == key)
+    {
+      midgame += slot.midgame;
+      endgame += slot.endgame;
+      return;
+    }
+
+    int mg = 0;
+    int eg = 0;
+    for (int side = 0; side < 2; ++side)
+    {
+      const bool white = side == 0;
+      const int sign = white ? 1 : -1;
+      const Bitboard own_pawns = pos.getPieces(PAWN, white);
+      const Bitboard enemy_pawns = pos.getPieces(PAWN, !white);
+
+      Bitboard pawns = own_pawns;
+      while (pawns != 0)
+      {
+        const int square = popLsb(pawns);
+        const int file = fileOf(square);
+        const int relative_rank = white ? rankOf(square) : 7 - rankOf(square);
+
+        if ((forward_file_bb[white ? 0 : 1][square] & own_pawns) != 0)
+        {
+          mg += sign * DOUBLED_PAWN_MG;
+          eg += sign * DOUBLED_PAWN_EG;
+        }
+        if ((adjacent_files_bb[file] & own_pawns) == 0)
+        {
+          mg += sign * ISOLATED_PAWN_MG;
+          eg += sign * ISOLATED_PAWN_EG;
+        }
+        else if ((passed_pawn_span_bb[white ? 1 : 0][square] & adjacent_files_bb[file] & own_pawns) == 0)
+        {
+          /// no friendly pawn behind on a neighbour file: cannot be defended
+          mg += sign * BACKWARD_PAWN_MG;
+          eg += sign * BACKWARD_PAWN_EG;
+        }
+        if ((passed_pawn_span_bb[white ? 0 : 1][square] & enemy_pawns) == 0)
+        {
+          mg += sign * passed_mg[relative_rank];
+          eg += sign * passed_eg[relative_rank];
+        }
+      }
+    }
+
+    slot.key = key;
+    slot.midgame = mg;
+    slot.endgame = eg;
+    slot.used = true;
+    midgame += mg;
+    endgame += eg;
   }
 
   int Evaluator::evaluate(const Position& pos)
   {
-    int eval = 0;
+    int midgame = pos.midgameScore();
+    int endgame = pos.endgameScore();
 
-    int white_pawn_cols[8] = {};
-    int black_pawn_cols[8] = {};
+    EvalTerms white_terms;
+    EvalTerms black_terms;
+    evaluateSide(pos, true, white_terms);
+    evaluateSide(pos, false, black_terms);
 
-    uint64_t pieces = pos.getBitboard(WHITE_PAWN);
-    while (pieces != 0)
+    midgame += white_terms.midgame - black_terms.midgame;
+    endgame += white_terms.endgame - black_terms.endgame;
+
+    pawnStructure(pos, midgame, endgame);
+
+    const int phase = std::min< int >(pos.phase(), MAX_PHASE);
+    int score = (midgame * phase + endgame * (MAX_PHASE - phase)) / MAX_PHASE;
+
+    /// a bare king and a minor piece cannot win, do not report an advantage
+    if (pos.isInsufficientMaterial())
     {
-      const int i = popLeastSignificantBit(pieces);
-      eval += weights[WHITE_PAWN] + pawn_table[i];
-      ++white_pawn_cols[i % 8];
+      score /= 8;
     }
 
-    pieces = pos.getBitboard(BLACK_PAWN);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval -= weights[WHITE_PAWN] + pawn_table[i ^ 56];
-      ++black_pawn_cols[i % 8];
-    }
+    score += pos.isWhiteToMove() ? TEMPO : -TEMPO;
+    return score;
+  }
 
-    pieces = pos.getBitboard(WHITE_KNIGHT);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval += weights[WHITE_KNIGHT] + knight_table[i]
-        + MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(i)) * 4;
-    }
+  int Evaluator::relativeEval(const Position& pos)
+  {
+    const int score = evaluate(pos);
+    return pos.isWhiteToMove() ? score : -score;
+  }
 
-    pieces = pos.getBitboard(BLACK_KNIGHT);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval -= weights[WHITE_KNIGHT] + knight_table[i ^ 56]
-        + MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(i)) * 4;
-    }
-
-    pieces = pos.getBitboard(WHITE_BISHOP);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval += weights[WHITE_BISHOP] + bishop_table[i]
-        + MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(i)) * 5;
-    }
-
-    pieces = pos.getBitboard(BLACK_BISHOP);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval -= weights[WHITE_BISHOP] + bishop_table[i ^ 56]
-        + MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(i)) * 5;
-    }
-
-    pieces = pos.getBitboard(WHITE_ROOK);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval += weights[WHITE_ROOK]
-        + MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(i)) * 2;
-    }
-
-    pieces = pos.getBitboard(BLACK_ROOK);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval -= weights[WHITE_ROOK]
-        + MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(i)) * 2;
-    }
-
-    pieces = pos.getBitboard(WHITE_QUEEN);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval += weights[WHITE_QUEEN] + queen_table[i]
-        + MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(i));
-    }
-
-    pieces = pos.getBitboard(BLACK_QUEEN);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval -= weights[WHITE_QUEEN] + queen_table[i ^ 56]
-        + MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(i));
-    }
-
-    pieces = pos.getBitboard(WHITE_KING);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval += king_table[i];
-    }
-
-    pieces = pos.getBitboard(BLACK_KING);
-    while (pieces != 0)
-    {
-      const int i = popLeastSignificantBit(pieces);
-      eval -= king_table[i ^ 56];
-    }
-
-    pawn_structure_eval(white_pawn_cols, black_pawn_cols, eval);
-    king_safety(pos, eval);
-
-    return eval;
+  int Evaluator::staticEvaluate(const Position& pos)
+  {
+    static thread_local Evaluator evaluator;
+    return evaluator.evaluate(pos);
   }
 
   int Evaluator::relative_eval(const Position& pos)
   {
-    int eval = evaluate(pos);
-    return pos.isWhiteToMove() ? eval : -eval;
-  }
-
-  void Evaluator::material(Piece piece, int& eval)
-  {
-    if (piece > 0)
-    {
-      eval += weights[piece];
-    }
-    else if (piece < 0)
-    {
-      eval -= weights[-piece];
-    }
-  }
-
-  void Evaluator::mobility(const Position &pos, int square, Piece piece, int &eval)
-  {
-    const int piece_color = piece > 0 ? 1 : -1;
-    int abs_piece = piece * piece_color;
-    switch (abs_piece)
-    {
-      case WHITE_QUEEN:
-        eval += MoveGenerator::countPseudoLegalQueenMoves(pos, static_cast< Square >(square)) * piece_color * 1;
-        break;
-      case WHITE_KNIGHT:
-        eval += MoveGenerator::countPseudoLegalKnightMoves(pos, static_cast< Square >(square)) * piece_color * 4;
-        break;
-      case WHITE_BISHOP:
-        eval += MoveGenerator::countPseudoLegalBishopMoves(pos, static_cast< Square >(square)) * piece_color * 5;
-        break;
-      case WHITE_ROOK:
-        eval += MoveGenerator::countPseudoLegalRookMoves(pos, static_cast< Square >(square)) * piece_color * 2;
-        break;
-    }
-  }
-
-  void Evaluator::piece_square_tables(int square, Piece piece, int& eval)
-  {
-    const int piece_color = piece > 0 ? 1 : -1;
-    int abs_piece = piece * piece_color;
-    switch (abs_piece)
-    {
-      case WHITE_KING:
-        eval += king_table[piece_color == 1 ? square : square ^ 56] * piece_color;
-        break;
-      case WHITE_QUEEN:
-        eval += queen_table[piece_color == 1 ? square : square ^ 56] * piece_color;
-        break;
-      case WHITE_KNIGHT:
-        eval += knight_table[piece_color == 1 ? square : square ^ 56] * piece_color;
-        break;
-      case WHITE_BISHOP:
-        eval += bishop_table[piece_color == 1 ? square : square ^ 56] * piece_color;
-        break;
-      case WHITE_PAWN:
-        eval += pawn_table[piece_color == 1 ? square : square ^ 56] * piece_color;
-        break;
-    }
-  }
-
-  void Evaluator::pawn_structure_fill(Piece piece, int square, int* white, int* black)
-  {
-    if (piece == WHITE_PAWN)
-    {
-      white[square % 8] += 1;
-    }
-    else if (piece == BLACK_PAWN)
-    {
-      black[square % 8] += 1;
-    }
-  }
-
-  void Evaluator::pawn_structure_eval(int *white, int *black, int& eval)
-  {
-    for (int i = 1; i < 7; ++i)
-    {
-      if (white[i] >= 2)
-      {
-        if (white[i + 1] == 0 && white[i - 1] == 0)
-        {
-          eval -= 40;
-        }
-        else
-        {
-          eval -= 15;
-        }
-      }
-      if (black[i] >= 2)
-      {
-        if (black[i + 1] == 0 && black[i - 1] == 0)
-        {
-          eval += 40;
-        }
-        else
-        {
-          eval += 15;
-        }
-      }
-    }
-    if (white[0] >= 2) eval -= 40;
-    if (black[0] >= 2) eval += 40;
-    if (white[7] >= 2) eval -= 40;
-    if (black[7] >= 2) eval += 40;
-  }
-
-  void Evaluator::king_safety(const Position &pos, int &eval)
-  {
-    const int white_king_square = pos.getWhiteKingSquare();
-    const int black_king_square = pos.getBlackKingSquare();
-    const uint64_t white_pawns = pos.getBitboard(WHITE_PAWN);
-    const uint64_t black_pawns = pos.getBitboard(BLACK_PAWN);
-    if (white_king_square % 8 != 3 && white_king_square % 8 != 4 && white_king_square % 8 != 5)
-    {
-      int row = white_king_square / 8;
-      int col = white_king_square % 8;
-      if (row < 2)
-      {
-        int c1 = col - 1;
-        int c2 = col + 1;
-
-        if (c1 < 0) c1 = 0;
-        if (c2 > 7) c2 = 7;
-
-        for (int r = row; r <= row + 1; ++r)
-        {
-          for (int c = c1; c <= c2; ++c)
-          {
-            int square = r * 8 + c;
-            if (square == white_king_square)
-                continue;
-            if ((white_pawns & (1ULL << square)) != 0)
-            {
-              eval += 5;
-            }
-          }
-        }
-      }
-    }
-
-    if (black_king_square % 8 != 3 && black_king_square % 8 != 4  && black_king_square % 8 != 5)
-    {
-      int row = black_king_square / 8;
-      int col = black_king_square % 8;
-      if (row > 5)
-      {
-        int c1 = col - 1;
-        int c2 = col + 1;
-
-        if (c1 < 0) c1 = 0;
-        if (c2 > 7) c2 = 7;
-
-        for (int r = row; r >= row - 1; --r)
-        {
-          for (int c = c1; c <= c2; ++c)
-          {
-            int square = r * 8 + c;
-            if (square == black_king_square)
-                continue;
-            if ((black_pawns & (1ULL << square)) != 0)
-            {
-              eval -= 5;
-            }
-          }
-        }
-      }
-    }
+    static thread_local Evaluator evaluator;
+    return evaluator.relativeEval(pos);
   }
 }

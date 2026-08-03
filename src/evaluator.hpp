@@ -1,21 +1,48 @@
 #ifndef EVALUATOR_HPP
 #define EVALUATOR_HPP
 
+#include <cstdint>
+#include <memory>
+
 #include "position.hpp"
 
 namespace chess
 {
+  /// Small direct mapped cache for the pawn structure term, which only depends
+  /// on the pawn placement and is therefore stable across most sibling nodes.
+  struct PawnHashTable
+  {
+    static constexpr int SIZE = 1 << 14;
+
+    struct Entry
+    {
+      uint64_t key = 0;
+      int32_t midgame = 0;
+      int32_t endgame = 0;
+      bool used = false;
+    };
+
+    Entry entries[SIZE];
+  };
+
   struct Evaluator
   {
-    static int evaluate(const Position& pos);
+    Evaluator();
+
+    /// score from white's point of view, in centipawns
+    int evaluate(const Position& pos);
+    /// score from the point of view of the side to move
+    int relativeEval(const Position& pos);
+
+    /// stateless helpers, kept so that callers without an Evaluator still work
+    static int staticEvaluate(const Position& pos);
     static int relative_eval(const Position& pos);
 
-    static void material(Piece piece, int& eval);
-    static void mobility(const Position& pos, int square, Piece piece, int& eval);
-    static void piece_square_tables(int square, Piece piece, int& eval);
-    static void pawn_structure_fill(Piece piece, int square, int* white, int* black);
-    static void pawn_structure_eval(int* white, int* black, int& eval);
-    static void king_safety(const Position& pos, int& eval);
+  private:
+    /// on the heap: a few hundred kilobytes have no business on the stack
+    std::unique_ptr< PawnHashTable > pawns_;
+
+    void pawnStructure(const Position& pos, int& midgame, int& endgame);
   };
 }
 
